@@ -1,0 +1,63 @@
+# ============================================================
+# Smart Router Butler — Git 忽略文件
+# ============================================================
+
+# 环境变量（含密钥，禁止提交）
+.env
+.env.local
+.env.production
+
+# Node.js
+node_modules/
+dist/
+.next/
+out/
+
+# Python
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+prisma/migrations/**/migration_lock.toml
+
+# Docker
+docker-compose.override.yml
+
+# Test
+coverage/
+.nyc_output/
+**/router-tester-store.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# FastEmbed 本地缓存
+.cache/fastembed/
+
+# Router 预下载 wheels（体积大，不提交；保留 router/wheels/.gitkeep）
+router/wheels/*.whl
+
+# 仅推送代码：不提交 Cursor 规则与项目文档
+.cursor/
+docs/
+BRD/
+商业分析/
+探讨/

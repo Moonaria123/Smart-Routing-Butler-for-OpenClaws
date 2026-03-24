@@ -1,0 +1,160 @@
+// Smart Router Butler — 数据库 Schema 契约
+// 本文件是所有子项目的数据库结构单一事实来源（Single Source of Truth）
+// 变更权限：仅架构师 Agent，需人类 Controller 审批
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Better Auth 管理的表（由 Better Auth 自动创建和维护）
+// 包括：user, session, account, verification
+// 详见 Better Auth 文档：https://www.better-auth.com
+// Dashboard Agent 在初始化 Better Auth 时自动生成这些表
+// ============================================================
+
+// ============================================================
+// 业务表
+// ============================================================
+
+/// AI Provider（如 OpenAI、Anthropic、DeepSeek）
+model Provider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  baseUrl   String
+  apiKey    String   // AES-256-GCM 加密，格式：iv:authTag:ciphertext（Base64）
+  apiType   String   @default("openai-compatible") // "openai" | "anthropic" | "openai-compatible"
+  enabled   Boolean  @default(true)
+  models    Model[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("providers")
+}
+
+/// Provider 下的 AI 模型
+model Model {
+  id            String   @id @default(cuid())
+  providerId    String
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId       String   // Provider 原始 ID，如 "gpt-4o"、"claude-3-5-sonnet"
+  alias         String?  // 用户自定义别名，如 "deepseek-coder"
+  contextWindow Int      @default(128000)
+  inputCost     Float    @default(0) // 美元 / 百万 input tokens
+  outputCost    Float    @default(0) // 美元 / 百万 output tokens
+  defaultParams Json     @default("{}") // {"temperature": 0.7, "max_tokens": 4096}
+  features      String[] // ["code", "long-context", "vision", "fast", "low-cost"]
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, modelId])
+  @@map("models")
+}
+
+/// 路由规则
+model Rule {
+  id            String    @id @default(cuid())
+  name          String
+  nameEn        String?   // 英文名称（控制台英文界面展示；可选）
+  priority      Int       @default(500) // 范围 0-1000，数值越大优先级越高
+  enabled       Boolean   @default(true)
+  conditions    Json      // { combinator: "AND"|"OR", items: [{type, ...params}] }
+  targetModel   String    // 格式："provider-name/model-id"
+  fallbackChain String[]  // 最多 3 个备用模型，格式同 targetModel
+  description   String?
+  descriptionEn String?   // 英文描述（可选）
+  hitCount      Int       @default(0)
+  lastHitAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("rules")
+}
+
+/// 请求日志（只写不改，保留 90 天）
+model RequestLog {
+  id               String   @id @default(cuid())
+  timestamp        DateTime @default(now())
+  routingLayer     String   // "L0_EXACT_CACHE" | "L0.5_SEMANTIC_CACHE" | "L1_RULE" | "L2_SEMANTIC" | "L3_ARCH_ROUTER" | "L3_FALLBACK"
+  ruleId           String?  // 命中的规则 ID（仅 L1 有值）
+  targetModel      String   // 实际路由到的模型
+  confidence       Float?   // 路由置信度（L2/L3 有值）
+  latencyMs        Int      // 总延迟（路由 + Provider 响应）
+  routingLatencyMs Int      // 路由决策延迟
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  estimatedCostUsd Float    @default(0)
+  statusCode       Int      @default(200)
+  streaming        Boolean  @default(false)
+  cacheHit         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  // 注意：无 updatedAt —— 只写表
+
+  @@index([timestamp])
+  @@index([routingLayer])
+  @@index([targetModel])
+  @@index([statusCode])
+  @@index([timestamp, statusCode])
+  @@map("request_logs")
+}
+
+/// Fallback 事件记录（只写不改，保留 30 天）
+model FallbackEvent {
+  id            String   @id @default(cuid())
+  timestamp     DateTime @default(now())
+  originalModel String
+  fallbackModel String
+  reason        String   // "circuit_breaker_429" | "circuit_breaker_5xx" | "circuit_breaker_timeout" | "provider_error"
+  requestLogId  String?
+  createdAt     DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("fallback_events")
+}
+
+/// 系统配置（键值对）
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // "cache_exact_ttl" | "cache_semantic_ttl" | "cache_semantic_threshold"
+  value     Json     // 值类型由 key 决定
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+/// API Token（供外部工具调用路由器）
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String    // 用途标注，如 "OpenClaw Token"、"Cursor Token"
+  tokenHash   String    @unique // SHA-256(原始 token)
+  tokenSuffix String    // 末四位，用于展示
+  /// 可选：AES-256-GCM 密文（与 Dashboard encrypt() 一致），仅当用户开启「允许再次复制」且创建时写入；禁止明文落日志
+  tokenCipher String?
+  /// 系统签发（内部 LLM 等），禁止用户撤销
+  systemManaged Boolean @default(false)
+  userId      String    // 关联 Better Auth user.id
+  revokedAt   DateTime? // 非 null 表示已撤销
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("api_tokens")
+}
+
+/// 管理操作审计日志
+model AdminLog {
+  id        String   @id @default(cuid())
+  action    String   // "rule_import" | "rule_export" | "provider_create" | "provider_update" | "provider_delete" | "cache_clear" | "circuit_breaker_reset"
+  details   Json     @default("{}")
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_logs")
+}

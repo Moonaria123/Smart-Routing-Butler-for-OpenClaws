@@ -1,0 +1,2 @@
+# 预下载的 pip wheels 放于此目录后，Router 镜像将离线安装，构建不访问 PyPI。
+# 运行脚本：scripts/download-router-wheels.ps1（Windows）或 scripts/download-router-wheels.sh

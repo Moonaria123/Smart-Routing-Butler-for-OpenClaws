@@ -1,0 +1,5 @@
+# 本地与 CI 质量门控（mypy / ruff），与 requirements.txt 一并安装
+mypy>=1.11.0
+ruff>=0.8.0
+# 契约集成测试（需运行中的 Router，见 router/tests 与 README；httpx 见 requirements.txt）
+pytest>=8.0.0

@@ -1,0 +1,35 @@
+{
+  "name": "smart-router-proxy",
+  "version": "1.0.0",
+  "description": "Smart Router Butler — 代理层（请求路由、SSE 透传、熔断器）",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "express": "^5.0.1",
+    "zod": "^3.24.2",
+    "ioredis": "^5.4.2",
+    "dotenv": "^16.4.7",
+    "uuid": "^11.1.0",
+    "pg": "^8.13.1",
+    "@paralleldrive/cuid2": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.10",
+    "@types/pg": "^8.11.11",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "eslint": "^9.22.0",
+    "@eslint/js": "^9.22.0",
+    "typescript-eslint": "^8.26.0",
+    "vitest": "^3.0.7"
+  }
+}

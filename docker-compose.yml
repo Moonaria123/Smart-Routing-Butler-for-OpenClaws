@@ -1,0 +1,137 @@
+# Smart Router Butler — Docker Compose 编排
+# 核心五服务：proxy / router / dashboard / postgres / redis
+# 环境变量：compose/ports.env（宿主机端口）先于 .env 加载，.env 可覆盖同名键（CR-DEF-02）
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartrouter-postgres
+    env_file:
+      - compose/ports.env
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - smartrouter
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: smartrouter-redis
+    env_file:
+      - compose/ports.env
+      - .env
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_UI_PORT:-8002}:8001"
+    volumes:
+      - redisdata:/opt/redis-stack/var/lib/redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - smartrouter
+
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: smartrouter-proxy
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+    env_file:
+      - compose/ports.env
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/health',r=>{let b='';r.on('data',c=>b+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1));}).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - smartrouter
+
+  router:
+    build:
+      context: ./router
+      dockerfile: Dockerfile
+    container_name: smartrouter-router
+    ports:
+      - "${ROUTER_PORT:-8001}:8001"
+    env_file:
+      - compose/ports.env
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - fastembed_cache:/root/.cache/fastembed
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - smartrouter
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: smartrouter-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    env_file:
+      - compose/ports.env
+      - .env
+    environment:
+      # 覆盖 .env 中的 PORT，避免被 Proxy 的 PORT=8080 影响，Dashboard 必须在容器内监听 3000
+      PORT: "3000"
+      # 监听所有网卡，否则 Docker 端口映射无法访问
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode>=200&&r.statusCode<400?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - smartrouter
+
+networks:
+  smartrouter:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  fastembed_cache:

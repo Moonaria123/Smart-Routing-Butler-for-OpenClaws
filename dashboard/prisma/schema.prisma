@@ -1,0 +1,215 @@
+// Smart Router Butler — Dashboard 数据库 Schema
+// 包含 Better Auth 管理表 + 业务表，与 contracts/database-schema.prisma 保持一致
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Better Auth 管理的表
+// ============================================================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ============================================================
+// 业务表
+// ============================================================
+
+/// AI Provider（如 OpenAI、Anthropic、DeepSeek）
+model Provider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  baseUrl   String
+  apiKey    String
+  apiType   String   @default("openai-compatible")
+  enabled   Boolean  @default(true)
+  models    Model[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("providers")
+}
+
+/// Provider 下的 AI 模型
+model Model {
+  id            String   @id @default(cuid())
+  providerId    String
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId       String
+  alias         String?
+  contextWindow Int      @default(128000)
+  inputCost     Float    @default(0)
+  outputCost    Float    @default(0)
+  defaultParams Json     @default("{}")
+  features      String[]
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, modelId])
+  @@map("models")
+}
+
+/// 路由规则
+model Rule {
+  id            String    @id @default(cuid())
+  name          String
+  /// 英文界面展示用名称（可选；缺失时回退到 name）
+  nameEn        String?
+  priority      Int       @default(500)
+  enabled       Boolean   @default(true)
+  conditions    Json
+  targetModel   String
+  fallbackChain String[]
+  description   String?
+  /// 英文界面展示用描述（可选）
+  descriptionEn String?
+  hitCount      Int       @default(0)
+  lastHitAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("rules")
+}
+
+/// 请求日志（只写不改，保留 90 天）
+model RequestLog {
+  id               String   @id @default(cuid())
+  timestamp        DateTime @default(now())
+  routingLayer     String
+  ruleId           String?
+  targetModel      String
+  confidence       Float?
+  latencyMs        Int
+  routingLatencyMs Int
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  estimatedCostUsd Float    @default(0)
+  statusCode       Int      @default(200)
+  streaming        Boolean  @default(false)
+  cacheHit         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([routingLayer])
+  @@index([targetModel])
+  @@index([statusCode])
+  @@index([timestamp, statusCode])
+  @@map("request_logs")
+}
+
+/// Fallback 事件记录（只写不改，保留 30 天）
+model FallbackEvent {
+  id            String   @id @default(cuid())
+  timestamp     DateTime @default(now())
+  originalModel String
+  fallbackModel String
+  reason        String
+  requestLogId  String?
+  createdAt     DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("fallback_events")
+}
+
+/// 系统配置（键值对）
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+/// API Token（供外部工具调用路由器）
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String
+  tokenHash   String    @unique
+  tokenSuffix String
+  /// 与 contracts 一致：供「允许再次复制」时服务端解密
+  tokenCipher String?
+  /// Dashboard 内部 LLM 等系统签发 Token，禁止用户撤销
+  systemManaged Boolean @default(false)
+  userId      String
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("api_tokens")
+}
+
+/// 管理操作审计日志
+model AdminLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   Json     @default("{}")
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_logs")
+}
