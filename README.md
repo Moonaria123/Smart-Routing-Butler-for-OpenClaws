@@ -28,7 +28,7 @@
 
 When using AI agents and IDE-assisted coding daily, we constantly hit these pain points:
 
-- **Steep API costs** — Whether it's a simple spell check or complex architecture design, tools default to the most expensive models (GPT-4o, Claude 3.5 Sonnet, etc.).
+- **Steep API costs** — Whether it's a simple spell check or complex architecture design, tools always use default models which may not at the right price.
 - **Rigid global config** — No way to assign the right model per task type (code completion, long-form summarization, multi-step reasoning).
 - **Black-box fragility** — Routing logic is opaque; when a single model provider goes down, the entire agent workflow collapses.
 
