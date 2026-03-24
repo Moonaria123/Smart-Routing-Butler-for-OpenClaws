@@ -47,6 +47,68 @@ When using AI agents and IDE-assisted coding daily, we constantly hit these pain
 
 ---
 
+## Rule Creation — Three Ways to Build Your Routing Strategy
+
+Smart Router Butler provides three distinct approaches to creating routing rules, from fully manual to fully AI-driven. Mix and match to suit your workflow.
+
+### 1. Custom Rule Editor
+
+Build rules visually through the web dashboard — no code required. Define conditions based on task type, keywords, token count, model preferences, and more; set priority, target model, and up to 3 fallback models per rule. Rules take effect immediately via hot-reload.
+
+<div align="center">
+<img src="./docs/images/screenshot-rule-editor.png" width="680" alt="Custom Rule Editor" />
+</div>
+
+**Example — Route coding tasks to a code-specialized model:**
+
+| Field | Value |
+|---|---|
+| Rule name | Coding Rule |
+| Priority | 900 (high) |
+| Condition | Task type = `coding` |
+| Target model | `Alibaba/qwen3-coder-plus` |
+| Fallback | `Alibaba/qwen3.5-plus` |
+
+Once saved, any request classified as a coding task automatically goes to the code-optimized model, with a general-purpose fallback if the primary is unavailable.
+
+### 2. Natural Language Rule Generator
+
+Describe your routing intent in plain language, and the built-in LLM translates it into structured rules automatically. Ideal for users who know what they want but prefer not to configure fields manually.
+
+<div align="center">
+<img src="./docs/images/screenshot-nl-generator.png" width="680" alt="Natural Language Rule Generator" />
+</div>
+
+**Example prompts:**
+
+- `Use DeepSeek Coder for code; GPT-4o-mini for chat`
+- `Use cheaper models when budget is under $5 per million tokens`
+- `If OpenAI is unhealthy, switch to Anthropic`
+- `Long docs (>10000 tokens) use Claude; short questions use GPT-4o-mini`
+- `GPT-4o for math/analysis; DeepSeek for translation`
+
+Type a sentence, click **Generate rules**, and the system produces one or more ready-to-use rules that you can review, edit, and enable in one click.
+
+### 3. AI Rule Wizard (Guided Questionnaire)
+
+A 5-step interactive wizard that walks you through your use cases, preferred providers, budget, and priorities — then automatically generates a complete initial rule set tailored to your needs.
+
+<div align="center">
+<img src="./docs/images/screenshot-ai-wizard.png" width="680" alt="AI Rule Wizard" />
+</div>
+
+**Wizard steps:**
+
+1. **Select use cases** — Coding & debugging, data analysis, content creation, general chat, translation, math & reasoning, long document processing
+2. **Choose providers** — Pick from your configured providers (OpenAI, Anthropic, Alibaba, local Ollama, etc.)
+3. **Set budget preference** — Cost-sensitive, balanced, or quality-first
+4. **Define priorities** — Latency vs. quality vs. cost trade-offs
+5. **Review & apply** — Preview all generated rules, tweak if needed, then activate
+
+Perfect for first-time setup — go from zero rules to a fully operational routing strategy in under 2 minutes.
+
+---
+
 ## Architecture & Routing Decision Chain
 
 ```mermaid
