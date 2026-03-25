@@ -111,13 +111,19 @@ Click any category to browse screenshots.
 <br><br>
 <img src="./docs/images/screenshot-rule-editor.png" alt="Visual rule editor" loading="lazy" />
 <br><br>
-<img src="./docs/images/screenshot-nl-generator.png" alt="Natural language rule generator" loading="lazy" />
-<br><br>
-<img src="./docs/images/screenshot-ai-wizard.png" alt="AI rule wizard" loading="lazy" />
-<br><br>
 <img src="./docs/images/screenshot-hit-analysis.png" alt="Rule hit analysis" loading="lazy" />
 <br><br>
 <img src="./docs/images/screenshot-raw-json.png" alt="Raw JSON editor" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🤖 AI Rule Generation</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-nl-generator.png" alt="Natural language rule generator" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard.png" alt="AI rule wizard (guided questionnaire)" loading="lazy" />
 </div>
 </details>
 

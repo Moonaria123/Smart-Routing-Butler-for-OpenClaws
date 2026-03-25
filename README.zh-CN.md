@@ -111,13 +111,19 @@
 <br><br>
 <img src="./docs/images/screenshot-rule-editor.png" alt="可视化规则编辑器" loading="lazy" />
 <br><br>
-<img src="./docs/images/screenshot-nl-generator.png" alt="自然语言规则生成器" loading="lazy" />
-<br><br>
-<img src="./docs/images/screenshot-ai-wizard.png" alt="AI 问卷向导" loading="lazy" />
-<br><br>
 <img src="./docs/images/screenshot-hit-analysis.png" alt="规则命中分析" loading="lazy" />
 <br><br>
 <img src="./docs/images/screenshot-raw-json.png" alt="Raw JSON 编辑器" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🤖 AI 规则生成</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-nl-generator.png" alt="自然语言规则生成器" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard.png" alt="AI 问卷向导" loading="lazy" />
 </div>
 </details>
 
