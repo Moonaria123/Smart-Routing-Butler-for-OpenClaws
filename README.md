@@ -2,17 +2,21 @@
 
 <img src="./docs/images/hero-banner.jpg" alt="Smart Router Butler" width="720" />
 
-# Smart Router Butler
+# 🦞 Smart Router Butler
 
 **One interface, every model at your command. Your local AI routing butler.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/Moonaria123/smart-router-butler/ci.yml?branch=main&label=CI&logo=github)](https://github.com/Moonaria123/smart-router-butler/actions/workflows/ci.yml)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![GitHub stars](https://img.shields.io/github/stars/Moonaria123/smart-router-butler?style=social)](https://github.com/Moonaria123/smart-router-butler/stargazers)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Moonaria123/smart-router-butler)](https://github.com/Moonaria123/smart-router-butler/commits)
+[![GitHub issues](https://img.shields.io/github/issues/Moonaria123/smart-router-butler)](https://github.com/Moonaria123/smart-router-butler/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [**Quick Start**](#-quick-start-self-hosted) · [**Features**](#-core-features) · [**Configuration**](#%EF%B8%8F-configuration-summary) · [**Security**](#%EF%B8%8F-security--privacy)
 
@@ -24,7 +28,31 @@
 
 ---
 
-## Why Smart Router Butler?
+<details>
+<summary><strong>📑 Table of Contents</strong></summary>
+
+- [💡 Why Smart Router Butler?](#-why-smart-router-butler)
+- [✨ Core Features](#-core-features)
+- [🎯 Rule Creation — Three Ways](#-rule-creation--three-ways-to-build-your-routing-strategy)
+- [🏗️ Architecture & Routing Decision Chain](#%EF%B8%8F-architecture--routing-decision-chain)
+- [📸 UI Preview](#-ui-preview)
+- [🚀 Quick Start (Self-Hosted)](#-quick-start-self-hosted)
+- [⚙️ Configuration Summary](#%EF%B8%8F-configuration-summary)
+- [🔀 Comparison with Alternatives](#-comparison-with-alternatives)
+- [📂 Repository Structure](#-repository-structure)
+- [🛠️ Development & Health Checks](#%EF%B8%8F-development--health-checks-maintainers)
+- [🗺️ Roadmap](#%EF%B8%8F-roadmap)
+- [⚖️ Open-Source Governance](#%EF%B8%8F-open-source-governance)
+- [🛡️ Security & Privacy](#%EF%B8%8F-security--privacy)
+- [🤝 Contributing](#-contributing)
+- [📜 License & Disclaimer](#-license--disclaimer)
+- [🙏 Acknowledgments](#-acknowledgments)
+
+</details>
+
+---
+
+## 💡 Why Smart Router Butler?
 
 When using AI agents and IDE-assisted coding daily, we constantly hit these pain points:
 
@@ -36,7 +64,9 @@ When using AI agents and IDE-assisted coding daily, we constantly hit these pain
 
 ---
 
-## Core Features
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## ✨ Core Features
 
 - **Multi-layer intelligent routing** — Pioneering L1 (rules) + L2 (semantic) + L3 (local model arbitration) three-tier decision chain for precise task-to-model matching.
 - **Significant cost reduction** — Offload simple tasks to local models or cheap APIs; reserve flagship models for complex tasks only.
@@ -47,7 +77,9 @@ When using AI agents and IDE-assisted coding daily, we constantly hit these pain
 
 ---
 
-## Rule Creation — Three Ways to Build Your Routing Strategy
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🎯 Rule Creation — Three Ways to Build Your Routing Strategy
 
 Smart Router Butler provides three distinct approaches to creating routing rules, from fully manual to fully AI-driven. Mix and match to suit your workflow.
 
@@ -109,7 +141,9 @@ Perfect for first-time setup — go from zero rules to a fully operational routi
 
 ---
 
-## Architecture & Routing Decision Chain
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🏗️ Architecture & Routing Decision Chain
 
 ```mermaid
 graph TD
@@ -138,7 +172,9 @@ graph TD
 
 ---
 
-## UI Preview
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 📸 UI Preview
 
 <div align="center">
 
@@ -162,7 +198,9 @@ graph TD
 
 ---
 
-## Quick Start (Self-Hosted)
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🚀 Quick Start (Self-Hosted)
 
 ### Prerequisites
 
@@ -212,7 +250,9 @@ When running `npm ci` in `proxy/` or `dashboard/`, the `.npmrc` file only affect
 
 ---
 
-## Configuration Summary
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## ⚙️ Configuration Summary
 
 | Category | Entry Point |
 |---|---|
@@ -225,7 +265,9 @@ When running `npm ci` in `proxy/` or `dashboard/`, the `.npmrc` file only affect
 
 ---
 
-## Comparison with Alternatives
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🔀 Comparison with Alternatives
 
 | Dimension | Typical Cloud API Gateway | Smart Router Butler |
 |---|---|---|
@@ -236,7 +278,9 @@ When running `npm ci` in `proxy/` or `dashboard/`, the `.npmrc` file only affect
 
 ---
 
-## Repository Structure
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 📂 Repository Structure
 
 | Directory | Description |
 |---|---|
@@ -247,7 +291,9 @@ When running `npm ci` in `proxy/` or `dashboard/`, the `.npmrc` file only affect
 
 ---
 
-## Development & Health Checks (Maintainers)
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🛠️ Development & Health Checks (Maintainers)
 
 ```bash
 # proxy/
@@ -262,7 +308,26 @@ npm run type-check && npm run lint
 
 ---
 
-## Open-Source Governance
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🗺️ Roadmap
+
+The following features are under consideration or active development:
+
+- [ ] Plugin system for custom routing strategies
+- [ ] Multi-user team collaboration with role-based access
+- [ ] Token budget tracking and usage alerts
+- [ ] More LLM provider integrations (Google Gemini, Mistral, etc.)
+- [ ] API key rotation and lifecycle management
+- [ ] Prometheus / Grafana metrics export
+
+> Have a feature request? [Open an issue](https://github.com/Moonaria123/smart-router-butler/issues) and describe your use case.
+
+---
+
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## ⚖️ Open-Source Governance
 
 | Document | Description |
 |---|---|
@@ -275,7 +340,9 @@ Please read the **Code of Conduct** before participating in Issues, PRs, or Disc
 
 ---
 
-## Security & Privacy
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🛡️ Security & Privacy
 
 - **Vulnerability reports**: Do not disclose exploitable details publicly. Follow [**SECURITY.md**](SECURITY.md).
 - **Deployment & data**: This software is **self-hosted**. User prompts, responses, logs, and keys are managed **by the deployer** on their own infrastructure. **You are responsible** for reviewing upstream LLM provider terms of service and data residency policies.
@@ -283,13 +350,17 @@ Please read the **Code of Conduct** before participating in Issues, PRs, or Disc
 
 ---
 
-## Contributing
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🤝 Contributing
 
 Issues and Pull Requests are welcome — see [**CONTRIBUTING.md**](CONTRIBUTING.md). By contributing, you agree to the [**CODE_OF_CONDUCT.md**](CODE_OF_CONDUCT.md) and the licensing terms in [**LICENSE**](LICENSE).
 
 ---
 
-## License & Disclaimer
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 📜 License & Disclaimer
 
 - Released under the [**MIT License**](LICENSE).
 - **Provided "AS IS"**: No warranties of merchantability, fitness for a particular purpose, or non-infringement — **use at your own risk**.
@@ -297,6 +368,24 @@ Issues and Pull Requests are welcome — see [**CONTRIBUTING.md**](CONTRIBUTING.
 
 ---
 
-## Further Reading
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 🙏 Acknowledgments
+
+Smart Router Butler is built on the shoulders of these great open-source projects:
+
+- [Next.js](https://nextjs.org/) — React framework for the dashboard
+- [Fastify](https://fastify.dev/) / [Express](https://expressjs.com/) — Node.js server framework for the proxy
+- [FastAPI](https://fastapi.tiangolo.com/) — Python framework for the semantic router
+- [Ollama](https://ollama.com/) — Local LLM runtime for L3 arbitration
+- [Prisma](https://www.prisma.io/) — Database ORM
+- [Redis](https://redis.io/) — In-memory cache
+- [PostgreSQL](https://www.postgresql.org/) — Persistent storage
+
+---
+
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 📚 Further Reading
 
 - For discussions on intelligent routing and cost optimization, see similar projects in the community. This repository makes no claims of feature parity with third-party products.
