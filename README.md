@@ -123,7 +123,11 @@ Click any category to browse screenshots.
 <div align="center">
 <img src="./docs/images/screenshot-nl-generator.png" alt="Natural language rule generator" loading="lazy" />
 <br><br>
+<img src="./docs/images/screenshot-nl-generator-result.png" alt="Natural language rule generator — generated result" loading="lazy" />
+<br><br>
 <img src="./docs/images/screenshot-ai-wizard.png" alt="AI rule wizard (guided questionnaire)" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard-result.png" alt="AI rule wizard — preview generated rules" loading="lazy" />
 </div>
 </details>
 

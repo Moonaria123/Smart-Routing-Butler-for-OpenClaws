@@ -123,7 +123,11 @@
 <div align="center">
 <img src="./docs/images/screenshot-nl-generator.png" alt="自然语言规则生成器" loading="lazy" />
 <br><br>
+<img src="./docs/images/screenshot-nl-generator-result.png" alt="自然语言规则生成器 — 生成结果" loading="lazy" />
+<br><br>
 <img src="./docs/images/screenshot-ai-wizard.png" alt="AI 问卷向导" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard-result.png" alt="AI 问卷向导 — 预览生成的规则" loading="lazy" />
 </div>
 </details>
 
