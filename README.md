@@ -33,11 +33,11 @@
 
 - [💡 Why Smart Router Butler?](#-why-smart-router-butler)
 - [✨ Core Features](#-core-features)
+- [📸 UI Preview](#-ui-preview)
 - [🎯 Rule Creation — Three Ways](#-rule-creation--three-ways-to-build-your-routing-strategy)
 - [🔌 OpenAI-Compatible Local Proxy](#-openai-compatible-local-proxy)
 - [🔍 Routing Layers Deep Dive](#-routing-layers-deep-dive)
 - [🏗️ Architecture Overview](#%EF%B8%8F-architecture-overview)
-- [📸 UI Preview](#-ui-preview)
 - [🚀 Quick Start (Self-Hosted)](#-quick-start-self-hosted)
 - [⚙️ Configuration Summary](#%EF%B8%8F-configuration-summary)
 - [🔀 Comparison with Alternatives](#-comparison-with-alternatives)
@@ -76,6 +76,76 @@ When using AI agents (OpenClaw, Cursor, Continue, etc.) and IDE-assisted coding 
 - **Full observability** — Beautiful Next.js web dashboard with request logs, token usage, rule hit analysis at a glance.
 - **100% data control** — Fully self-hosted, data never leaves your infrastructure. API keys encrypted with AES-256-GCM — no third-party gateway privacy risks.
 - **Blazing performance** — L1 rule engine matches in-memory synchronously (<2ms). Full SSE streaming passthrough for zero-latency feel.
+
+<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
+
+## 📸 UI Preview
+
+Click any category to browse screenshots.
+
+<details open>
+<summary><b>📊 Dashboard Overview</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-overview.png" alt="Dashboard Overview — KPIs, request trend, provider traffic, latency percentiles" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🔧 Provider & Model Management</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-providers.png" alt="Provider list with health status and actions" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-model-management.png" alt="Model management — add manually or fetch from provider API" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-model-dropdown.png" alt="Fetch available models from upstream provider" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>📋 Routing Rules</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-rules.png" alt="Routing rules list" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-rule-editor.png" alt="Visual rule editor" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-nl-generator.png" alt="Natural language rule generator" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard.png" alt="AI rule wizard" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-hit-analysis.png" alt="Rule hit analysis" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-raw-json.png" alt="Raw JSON editor" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>📜 Request Logs</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-request-logs.png" alt="Request logs with filtering" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🔑 API Tokens</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-api-tokens.png" alt="API token management" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>⚙️ Settings</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-settings-model.png" alt="Settings — API token security, rule generation model, local router (L3)" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-settings-cache.png" alt="Settings — cache TTL, routing policy, cost analytics" loading="lazy" />
+</div>
+</details>
 
 <p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
 
@@ -258,30 +328,6 @@ graph TD
 ```
 
 </details>
-
-<p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
-
-## 📸 UI Preview
-
-<div align="center">
-
-| Routing Rules | Natural Language Rule Generator |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-rules.png" loading="lazy" /> | <img src="./docs/images/screenshot-nl-generator.png" loading="lazy" /> |
-
-| Rule Hit Analysis | Rule Editor |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-hit-analysis.png" loading="lazy" /> | <img src="./docs/images/screenshot-rule-editor.png" loading="lazy" /> |
-
-| AI Rule Wizard | Request Logs |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-ai-wizard.png" loading="lazy" /> | <img src="./docs/images/screenshot-request-logs.png" loading="lazy" /> |
-
-| Raw JSON Editor |
-|:---:|
-| <img src="./docs/images/screenshot-raw-json.png" loading="lazy" /> |
-
-</div>
 
 <p align="right"><a href="#-smart-router-butler">⬆ Back to Top</a></p>
 

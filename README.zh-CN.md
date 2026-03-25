@@ -33,11 +33,11 @@
 
 - [💡 为什么需要 Smart Router Butler？](#-为什么需要-smart-router-butler)
 - [✨ 核心特性](#-核心特性)
+- [📸 界面预览](#-界面预览)
 - [🎯 规则创建 — 三种方式](#-规则创建--三种方式构建你的路由策略)
 - [🔌 OpenAI 兼容本地代理](#-openai-兼容本地代理)
 - [🔍 路由层级详解](#-路由层级详解)
 - [🏗️ 架构概览](#%EF%B8%8F-架构概览)
-- [📸 界面预览](#-界面预览)
 - [🚀 快速开始（自托管）](#-快速开始自托管)
 - [⚙️ 配置说明（摘要）](#%EF%B8%8F-配置说明摘要)
 - [🔀 与其它方案的差异](#-与其它方案的差异)
@@ -76,6 +76,76 @@
 - 📊 **全链路可观测** — 提供精美的 Next.js Web 控制台，请求日志、Token 消耗、命中规则一目了然。
 - 🔒 **100% 数据掌控** — 完全自托管，数据不下车；API Key 采用 AES-256-GCM 加密存储，拒绝第三方网关的隐私风险。
 - ⚡ **极致性能** — L1 规则引擎内存同步匹配（<2ms），全程支持 SSE 流式透传，无感接入。
+
+<p align="right"><a href="#-smart-router-butler">⬆ 回到顶部</a></p>
+
+## 📸 界面预览
+
+点击分类展开浏览截图。
+
+<details open>
+<summary><b>📊 控制台总览</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-overview.png" alt="控制台总览 — KPI 卡片、24h 请求趋势、Provider 流量、路由延迟分位数" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🔧 Provider 与模型管理</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-providers.png" alt="Provider 列表 — 健康状态与操作" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-model-management.png" alt="模型管理 — 手动添加或从 Provider API 拉取" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-model-dropdown.png" alt="从上游 Provider 拉取可用模型列表" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>📋 路由规则</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-rules.png" alt="路由规则列表" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-rule-editor.png" alt="可视化规则编辑器" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-nl-generator.png" alt="自然语言规则生成器" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-ai-wizard.png" alt="AI 问卷向导" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-hit-analysis.png" alt="规则命中分析" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-raw-json.png" alt="Raw JSON 编辑器" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>📜 请求日志</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-request-logs.png" alt="请求日志与筛选" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>🔑 API Tokens</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-api-tokens.png" alt="API Token 管理" loading="lazy" />
+</div>
+</details>
+
+<details>
+<summary><b>⚙️ 系统设置</b></summary>
+<br>
+<div align="center">
+<img src="./docs/images/screenshot-settings-model.png" alt="设置 — API Token 安全、规则生成模型、本地路由器 (L3)" loading="lazy" />
+<br><br>
+<img src="./docs/images/screenshot-settings-cache.png" alt="设置 — 缓存 TTL、路由策略、成本分析" loading="lazy" />
+</div>
+</details>
 
 <p align="right"><a href="#-smart-router-butler">⬆ 回到顶部</a></p>
 
@@ -258,30 +328,6 @@ graph TD
 ```
 
 </details>
-
-<p align="right"><a href="#-smart-router-butler">⬆ 回到顶部</a></p>
-
-## 📸 界面预览
-
-<div align="center">
-
-| 路由规则管理 | 自然语言生成规则 |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-rules.png" /> | <img src="./docs/images/screenshot-nl-generator.png" /> |
-
-| 规则命中分析 | 规则编辑器 |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-hit-analysis.png" /> | <img src="./docs/images/screenshot-rule-editor.png" /> |
-
-| AI 规则向导 | 请求日志 |
-|:---:|:---:|
-| <img src="./docs/images/screenshot-ai-wizard.png" /> | <img src="./docs/images/screenshot-request-logs.png" /> |
-
-| Raw JSON 编辑器 |
-|:---:|
-| <img src="./docs/images/screenshot-raw-json.png" /> |
-
-</div>
 
 <p align="right"><a href="#-smart-router-butler">⬆ 回到顶部</a></p>
 
