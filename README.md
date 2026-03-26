@@ -32,6 +32,7 @@
 <summary><strong>📑 Table of Contents</strong></summary>
 
 - [💡 Why Smart Routing Butler?](#-why-smart-routing-butler)
+- [🔀 Comparison with Alternatives](#-comparison-with-alternatives)
 - [✨ Core Features](#-core-features)
 - [📸 UI Preview](#-ui-preview)
 - [🎯 Rule Creation — Three Ways](#-rule-creation--three-ways-to-build-your-routing-strategy)
@@ -40,7 +41,6 @@
 - [🏗️ Architecture Overview](#%EF%B8%8F-architecture-overview)
 - [🚀 Quick Start (Self-Hosted)](#-quick-start-self-hosted)
 - [⚙️ Configuration Summary](#%EF%B8%8F-configuration-summary)
-- [🔀 Comparison with Alternatives](#-comparison-with-alternatives)
 - [📂 Repository Structure](#-repository-structure)
 - [🛠️ Development & Health Checks](#%EF%B8%8F-development--health-checks-maintainers)
 - [🗺️ Roadmap](#%EF%B8%8F-roadmap)
@@ -63,6 +63,19 @@ When using AI agents (OpenClaw, Cursor, Continue, etc.) and IDE-assisted coding 
 - **Black-box fragility** — Routing logic is opaque; when a single model provider goes down, the entire agent workflow collapses.
 
 **Smart Routing Butler** turns "which model to use" into a **policy-driven, hot-reloadable** configuration problem. It acts as your local proxy layer, intercepts all LLM requests, and intelligently dispatches them based on your rules and semantic understanding.
+
+<p align="right"><a href="#-smart-routing-butler">⬆ Back to Top</a></p>
+
+## 🔀 Comparison with Alternatives
+
+| Dimension | Typical Cloud API Gateway | Smart Routing Butler |
+|---|---|---|
+| **Integration** | Requires dedicated plugins, browser extensions, or SDK wrappers per tool | **Standard OpenAI-compatible endpoint** — any tool that supports `base_url` + API key works instantly. No plugins needed. |
+| **Data privacy** | Traffic routed through third parties — leak risk | **100% self-hosted**, data stays on your local network |
+| **Routing logic** | Platform black-box, no user control | **L0–L3 white-box**, transparent, configurable, explainable |
+| **Rule customization** | Limited or no user-defined rules | Full visual editor + natural language + AI wizard for custom routing rules |
+| **Compliance** | Dependent on vendor terms, region-locked | **Deploy on your own network**, meets the strictest enterprise requirements |
+| **Cost control** | Platform fees or fixed monthly charges | **Zero platform fees**, route on-demand to maximize free/cheap model value |
 
 <p align="right"><a href="#-smart-routing-butler">⬆ Back to Top</a></p>
 
@@ -401,19 +414,6 @@ When running `npm ci` in `proxy/` or `dashboard/`, the `.npmrc` file only affect
 | Pre-built images | `GHCR_OWNER`, `SMARTROUTER_IMAGE_TAG` |
 
 **Never** commit `.env`, API keys, or production connection strings to Git.
-
-<p align="right"><a href="#-smart-routing-butler">⬆ Back to Top</a></p>
-
-## 🔀 Comparison with Alternatives
-
-| Dimension | Typical Cloud API Gateway | Smart Routing Butler |
-|---|---|---|
-| **Integration** | Requires dedicated plugins, browser extensions, or SDK wrappers per tool | **Standard OpenAI-compatible endpoint** — any tool that supports `base_url` + API key works instantly. No plugins needed. |
-| **Data privacy** | Traffic routed through third parties — leak risk | **100% self-hosted**, data stays on your local network |
-| **Routing logic** | Platform black-box, no user control | **L0–L3 white-box**, transparent, configurable, explainable |
-| **Rule customization** | Limited or no user-defined rules | Full visual editor + natural language + AI wizard for custom routing rules |
-| **Compliance** | Dependent on vendor terms, region-locked | **Deploy on your own network**, meets the strictest enterprise requirements |
-| **Cost control** | Platform fees or fixed monthly charges | **Zero platform fees**, route on-demand to maximize free/cheap model value |
 
 <p align="right"><a href="#-smart-routing-butler">⬆ Back to Top</a></p>
 
