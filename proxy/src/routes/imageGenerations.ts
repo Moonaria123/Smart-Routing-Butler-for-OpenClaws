@@ -87,13 +87,11 @@ router.post("/", validate(imageGenerationSchema), async (req: Request, res: Expr
     throw new AppError(400, "invalid_request_error", "model_not_found", `模型 ${targetModel} 不支持图片生成（缺少 image-generation 能力标签）`);
   }
 
-  // 检查 adapter 是否实现 sendImageRequest
-  if (!resolved.adapter.sendImageRequest) {
+  // 提取 sendImageRequest 并判空
+  const sendImageRequest = resolved.adapter.sendImageRequest;
+  if (!sendImageRequest) {
     throw new AppError(501, "server_error", "internal_error", `Provider ${resolved.providerName} 不支持图片生成 API`);
   }
-
-  const adapter = resolved.adapter;
-
   // 构建请求体
   const requestBody: Record<string, unknown> = {
     prompt: body.prompt,
@@ -117,7 +115,7 @@ router.post("/", validate(imageGenerationSchema), async (req: Request, res: Expr
 
         let resp: globalThis.Response;
         try {
-          resp = await adapter.sendImageRequest!({
+          resp = await sendImageRequest({
             baseUrl: resolved.baseUrl,
             apiKey: resolved.apiKey,
             body: requestBody,
