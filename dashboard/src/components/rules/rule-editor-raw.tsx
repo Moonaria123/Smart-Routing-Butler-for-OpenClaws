@@ -24,6 +24,7 @@ function rulesToFormData(rules: RuleRecord[]): RuleFormData[] {
     conditions: r.conditions,
     targetModel: r.targetModel,
     fallbackChain: r.fallbackChain,
+    thinkingStrategy: r.thinkingStrategy ?? "auto",
     description: r.description ?? undefined,
     descriptionEn: r.descriptionEn ?? undefined,
   }));

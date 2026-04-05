@@ -10,9 +10,15 @@ Python FastAPI 服务：语义路由、Arch-Router L3、语义缓存。
   python -m mypy app/ --strict
   ```
 - **Lint**：`python -m ruff check app/`
-- **说明**：对外发布的精简包中不包含 `router/tests/` 与 `pytest` 配置；质量门禁以 **ruff + mypy** 为准。
+- **契约集成测试**（需已启动的 Router，如 `docker compose up`）：
+  ```bash
+  pip install -r requirements.txt -r requirements-dev.txt
+  set ROUTER_TEST_URL=http://127.0.0.1:8001
+  python -m pytest
+  ```
+  未启动服务时整模块跳过（见 `router/tests/test_router_contract.py`）。
 - Windows 上若未将工具加入 PATH，请统一使用 `python -m …`。
-- **CI**：推送/PR 至 **main** / **master** 时由 **`.github/workflows/ci.yml`** 在 Ubuntu + Python 3.12 上执行 **ruff** 与 **mypy --strict**。若仓库使用 **GitLab CI**，请在 `.gitlab-ci.yml` 中镜像上述两条命令与工作目录 **`router/`**。
+- **CI**：推送/PR 至 **main** / **master** 时由 **`.github/workflows/ci.yml`** 在 Ubuntu + Python 3.12 上执行 **ruff** 与 **mypy --strict**（见 **ISSUE-PL-11** / **`docs/FIX-REPORT.md` #65**）。若仓库使用 **GitLab CI**，请在 `.gitlab-ci.yml` 中镜像上述两条命令与工作目录 **`router/`**。
 
 ## 运行
 

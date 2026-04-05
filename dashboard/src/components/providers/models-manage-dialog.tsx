@@ -7,6 +7,13 @@ import { z } from "zod";
 import { CloudDownload, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
+import { inferFeatureHints, inferThinkingHint } from "@/lib/model-feature-hints";
+
+export interface UpstreamModel {
+  id: string;
+  owned_by?: string;
+  created?: number;
+}
 
 export interface ProviderModelRow {
   id: string;
@@ -16,6 +23,9 @@ export interface ProviderModelRow {
   inputCost: number;
   outputCost: number;
   enabled: boolean;
+  supportsThinking: boolean;
+  defaultThinking: { enabled?: boolean; budget_tokens?: number | null };
+  features: string[];
 }
 
 interface ModelFormValues {
@@ -25,6 +35,11 @@ interface ModelFormValues {
   inputCost: number;
   outputCost: number;
   enabled: boolean;
+  supportsThinking: boolean;
+  thinkingBudgetTokens: number | null;
+  supportsVision: boolean;
+  supportsAudio: boolean;
+  supportsImageGeneration: boolean;
 }
 
 interface ModelsManageDialogProps {
@@ -52,12 +67,14 @@ export function ModelsManageDialog({
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [upstreamModels, setUpstreamModels] = useState<string[] | null>(null);
+  const [upstreamModels, setUpstreamModels] = useState<UpstreamModel[] | null>(null);
   const [upstreamLoading, setUpstreamLoading] = useState(false);
   const [upstreamError, setUpstreamError] = useState<string | null>(null);
   const [upstreamHint, setUpstreamHint] = useState<string | null>(null);
-  const [selectedUpstreamId, setSelectedUpstreamId] = useState("");
+  const [selectedUpstreamIds, setSelectedUpstreamIds] = useState<Set<string>>(new Set());
   const [upstreamFilter, setUpstreamFilter] = useState("");
+  const [batchAdding, setBatchAdding] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   const modelSchema = useMemo(
     () =>
@@ -71,6 +88,11 @@ export function ModelsManageDialog({
         inputCost: z.coerce.number().min(0).default(0),
         outputCost: z.coerce.number().min(0).default(0),
         enabled: z.boolean().default(true),
+        supportsThinking: z.boolean().default(false),
+        thinkingBudgetTokens: z.coerce.number().int().positive().nullable().default(null),
+        supportsVision: z.boolean().default(false),
+        supportsAudio: z.boolean().default(false),
+        supportsImageGeneration: z.boolean().default(false),
       }),
     [t],
   );
@@ -98,8 +120,9 @@ export function ModelsManageDialog({
     setUpstreamModels(null);
     setUpstreamError(null);
     setUpstreamHint(null);
-    setSelectedUpstreamId("");
+    setSelectedUpstreamIds(new Set());
     setUpstreamFilter("");
+    setBatchAdding(false);
   }, [open, providerId]);
 
   const existingModelIds = useMemo(
@@ -111,21 +134,14 @@ export function ModelsManageDialog({
     if (!upstreamModels) return [];
     const q = upstreamFilter.trim().toLowerCase();
     return upstreamModels.filter(
-      (id) => !q || id.toLowerCase().includes(q),
+      (m) => !q || m.id.toLowerCase().includes(q) || (m.owned_by?.toLowerCase().includes(q) ?? false),
     );
   }, [upstreamModels, upstreamFilter]);
 
+  // Clear selection when upstream models change
   useEffect(() => {
-    if (!upstreamModels?.length) return;
-    const existing = new Set(models.map((m) => m.modelId));
-    const pick = upstreamModels.find((id) => !existing.has(id));
-    setSelectedUpstreamId((prev) => {
-      if (prev && upstreamModels.includes(prev) && !existing.has(prev)) {
-        return prev;
-      }
-      return pick ?? "";
-    });
-  }, [upstreamModels, models]);
+    setSelectedUpstreamIds(new Set());
+  }, [upstreamModels]);
 
   const fetchUpstreamModels = useCallback(async () => {
     setUpstreamLoading(true);
@@ -136,12 +152,16 @@ export function ModelsManageDialog({
         `/api/providers/${providerId}/upstream-models`,
       );
       const data = (await res.json()) as {
-        models?: string[];
+        models?: UpstreamModel[];
         error?: string;
         hint?: string;
       };
       if (!res.ok) {
-        setUpstreamError(data.error ?? t("models.upstream.fetchFail"));
+        if (res.status === 429) {
+          setUpstreamError(t("models.upstream.rateLimited"));
+        } else {
+          setUpstreamError(data.error ?? t("models.upstream.fetchFail"));
+        }
         setUpstreamModels([]);
         return;
       }
@@ -156,42 +176,65 @@ export function ModelsManageDialog({
     }
   }, [providerId, t]);
 
+  const toggleUpstream = (id: string) => {
+    setSelectedUpstreamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const availableUpstream = useMemo(
+    () => filteredUpstream.filter((m) => !existingModelIds.has(m.id)),
+    [filteredUpstream, existingModelIds],
+  );
+
+  const selectAllAvailable = () => {
+    setSelectedUpstreamIds(new Set(availableUpstream.map((m) => m.id)));
+  };
+
+  const deselectAll = () => setSelectedUpstreamIds(new Set());
+
   const addSelectedFromUpstream = async () => {
-    if (
-      !selectedUpstreamId ||
-      existingModelIds.has(selectedUpstreamId)
-    ) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/providers/${providerId}/models`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          modelId: selectedUpstreamId,
-          alias: null,
-          contextWindow: 128000,
-          inputCost: 0,
-          outputCost: 0,
-          enabled: true,
-        }),
-      });
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        throw new Error(err.error ?? t("models.toast.addFail"));
+    const ids = [...selectedUpstreamIds].filter((id) => !existingModelIds.has(id));
+    if (ids.length === 0) return;
+    setBatchAdding(true);
+    setBatchProgress({ current: 0, total: ids.length });
+    let ok = 0;
+    let fail = 0;
+    for (const modelId of ids) {
+      setBatchProgress((p) => ({ ...p, current: p.current + 1 }));
+      const features = inferFeatureHints(modelId);
+      const supportsThinking = inferThinkingHint(modelId);
+      try {
+        const res = await fetch(`/api/providers/${providerId}/models`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            modelId,
+            alias: null,
+            contextWindow: 128000,
+            inputCost: 0,
+            outputCost: 0,
+            enabled: true,
+            supportsThinking,
+            defaultThinking: { enabled: supportsThinking, budget_tokens: null },
+            features,
+          }),
+        });
+        if (!res.ok) throw new Error();
+        ok++;
+      } catch {
+        fail++;
       }
-      onToast(
-        t("models.toast.addUpstreamOk", { id: selectedUpstreamId }),
-        "success",
-      );
-      await load();
-      onChanged();
-    } catch (e) {
-      onToast(
-        e instanceof Error ? e.message : t("models.toast.addFail"),
-        "error",
-      );
     }
+    await load();
+    onChanged();
+    if (ok > 0) onToast(t("models.upstream.batchDone", { ok }), "success");
+    if (fail > 0) onToast(t("models.upstream.batchFail", { fail }), "error");
+    setSelectedUpstreamIds(new Set());
+    setBatchAdding(false);
   };
 
   const addForm = useForm<ModelFormValues>({
@@ -203,6 +246,11 @@ export function ModelsManageDialog({
       inputCost: 0,
       outputCost: 0,
       enabled: true,
+      supportsThinking: false,
+      thinkingBudgetTokens: null,
+      supportsVision: false,
+      supportsAudio: false,
+      supportsImageGeneration: false,
     },
   });
 
@@ -219,10 +267,19 @@ export function ModelsManageDialog({
       inputCost: m.inputCost,
       outputCost: m.outputCost,
       enabled: m.enabled,
+      supportsThinking: m.supportsThinking,
+      thinkingBudgetTokens: m.defaultThinking?.budget_tokens ?? null,
+      supportsVision: (m.features ?? []).includes("vision"),
+      supportsAudio: (m.features ?? []).includes("audio"),
+      supportsImageGeneration: (m.features ?? []).includes("image-generation"),
     });
   };
 
   const onAdd = addForm.handleSubmit(async (values) => {
+    const features: string[] = [];
+    if (values.supportsVision) features.push("vision");
+    if (values.supportsAudio) features.push("audio");
+    if (values.supportsImageGeneration) features.push("image-generation");
     try {
       const res = await fetch(`/api/providers/${providerId}/models`, {
         method: "POST",
@@ -234,6 +291,12 @@ export function ModelsManageDialog({
           inputCost: values.inputCost,
           outputCost: values.outputCost,
           enabled: values.enabled,
+          supportsThinking: values.supportsThinking,
+          defaultThinking: {
+            enabled: values.supportsThinking,
+            budget_tokens: values.supportsThinking ? (values.thinkingBudgetTokens || null) : null,
+          },
+          features,
         }),
       });
       if (!res.ok) {
@@ -254,6 +317,10 @@ export function ModelsManageDialog({
 
   const onUpdate = editForm.handleSubmit(async (values) => {
     if (!editingId) return;
+    const features: string[] = [];
+    if (values.supportsVision) features.push("vision");
+    if (values.supportsAudio) features.push("audio");
+    if (values.supportsImageGeneration) features.push("image-generation");
     try {
       const res = await fetch(`/api/models/${editingId}`, {
         method: "PUT",
@@ -265,6 +332,12 @@ export function ModelsManageDialog({
           inputCost: values.inputCost,
           outputCost: values.outputCost,
           enabled: values.enabled,
+          supportsThinking: values.supportsThinking,
+          defaultThinking: {
+            enabled: values.supportsThinking,
+            budget_tokens: values.supportsThinking ? (values.thinkingBudgetTokens || null) : null,
+          },
+          features,
         }),
       });
       if (!res.ok) {
@@ -351,43 +424,83 @@ export function ModelsManageDialog({
                     placeholder={t("models.upstream.filter")}
                     value={upstreamFilter}
                     onChange={(e) => setUpstreamFilter(e.target.value)}
-                    className={cn(fieldClasses, "max-w-[220px]")}
+                    className={cn(fieldClasses, "max-w-[280px]")}
                     aria-label={t("models.upstream.filter")}
                   />
-                  <select
-                    value={selectedUpstreamId}
-                    onChange={(e) => setSelectedUpstreamId(e.target.value)}
-                    className={cn(fieldClasses, "max-w-[min(100%,320px)]")}
-                    aria-label={t("models.upstream.selectPh")}
-                  >
-                    <option value="">{t("models.upstream.selectPh")}</option>
-                    {filteredUpstream.map((id) => (
-                      <option
-                        key={id}
-                        value={id}
-                        disabled={existingModelIds.has(id)}
-                      >
-                        {id}
-                        {existingModelIds.has(id)
-                          ? t("models.upstream.alreadyAdded")
-                          : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void addSelectedFromUpstream()}
-                    disabled={
-                      !selectedUpstreamId ||
-                      existingModelIds.has(selectedUpstreamId)
-                    }
-                    className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {t("models.upstream.addSelected")}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={selectAllAvailable}
+                      disabled={batchAdding}
+                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      {t("models.upstream.selectAll")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deselectAll}
+                      disabled={batchAdding}
+                      className="text-xs text-muted-foreground hover:underline disabled:opacity-50"
+                    >
+                      {t("models.upstream.deselectAll")}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
+            {upstreamModels !== null && upstreamModels.length > 0 && (
+              <>
+                <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-border bg-background">
+                  {filteredUpstream.map((m) => {
+                    const isExisting = existingModelIds.has(m.id);
+                    const isSelected = selectedUpstreamIds.has(m.id);
+                    return (
+                      <label
+                        key={m.id}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-sm last:border-0 hover:bg-muted/50",
+                          isExisting && "cursor-default opacity-50",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isExisting || batchAdding}
+                          onChange={() => toggleUpstream(m.id)}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span className="font-mono text-xs">{m.id}</span>
+                        {m.owned_by && (
+                          <span className="text-xs text-muted-foreground">
+                            ({m.owned_by})
+                          </span>
+                        )}
+                        {isExisting && (
+                          <span className="text-xs text-muted-foreground">
+                            {t("models.upstream.alreadyAdded")}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void addSelectedFromUpstream()}
+                    disabled={selectedUpstreamIds.size === 0 || batchAdding}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {batchAdding
+                      ? t("models.upstream.adding", {
+                          current: batchProgress.current,
+                          total: batchProgress.total,
+                        })
+                      : t("models.upstream.addN", { n: selectedUpstreamIds.size })}
+                  </button>
+                </div>
+              </>
+            )}
             {upstreamError && (
               <p className="mt-2 text-sm text-destructive" role="alert">
                 {upstreamError}
@@ -485,7 +598,7 @@ export function ModelsManageDialog({
               <p className="text-xs text-muted-foreground sm:col-span-2">
                 {t("models.manual.costHint")}
               </p>
-              <div className="flex items-end gap-4 sm:col-span-2">
+              <div className="flex flex-wrap items-end gap-4 sm:col-span-2">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -494,6 +607,53 @@ export function ModelsManageDialog({
                   />
                   {t("models.manual.enabled")}
                 </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    {...addForm.register("supportsThinking")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  {t("models.manual.supportsThinking")}
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    {...addForm.register("supportsVision")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  {t("models.manual.supportsVision")}
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    {...addForm.register("supportsAudio")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  {t("models.manual.supportsAudio")}
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    {...addForm.register("supportsImageGeneration")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  {t("models.manual.supportsImageGen")}
+                </label>
+              </div>
+              {addForm.watch("supportsThinking") && (
+                <Field
+                  label={t("models.manual.thinkingBudget")}
+                  error={addForm.formState.errors.thinkingBudgetTokens?.message}
+                >
+                  <input
+                    type="number"
+                    {...addForm.register("thinkingBudgetTokens")}
+                    className={fieldClasses}
+                    placeholder="8192"
+                  />
+                </Field>
+              )}
+              <div className="flex items-end sm:col-span-2">
                 <button
                   type="submit"
                   className="ml-auto inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -531,6 +691,12 @@ export function ModelsManageDialog({
                       {t("models.col.outputCost")}
                     </th>
                     <th className="px-3 py-2 text-center font-medium">
+                      {t("models.col.thinking")}
+                    </th>
+                    <th className="px-3 py-2 text-center font-medium">
+                      {t("models.col.capabilities")}
+                    </th>
+                    <th className="px-3 py-2 text-center font-medium">
                       {t("models.col.status")}
                     </th>
                     <th className="px-3 py-2 text-right font-medium">
@@ -545,7 +711,7 @@ export function ModelsManageDialog({
                         key={m.id}
                         className="border-b border-border bg-muted/20"
                       >
-                        <td colSpan={7} className="p-3">
+                        <td colSpan={9} className="p-3">
                           <form
                             onSubmit={onUpdate}
                             className="grid gap-2 sm:grid-cols-2"
@@ -623,14 +789,61 @@ export function ModelsManageDialog({
                                 )}
                               />
                             </Field>
-                            <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                              <input
-                                type="checkbox"
-                                {...editForm.register("enabled")}
-                                className="h-4 w-4 rounded"
-                              />
-                              {t("models.manual.enabled")}
-                            </label>
+                            <div className="flex flex-wrap items-center gap-4 text-sm sm:col-span-2">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  {...editForm.register("enabled")}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {t("models.manual.enabled")}
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  {...editForm.register("supportsThinking")}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {t("models.manual.supportsThinking")}
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  {...editForm.register("supportsVision")}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {t("models.manual.supportsVision")}
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  {...editForm.register("supportsAudio")}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {t("models.manual.supportsAudio")}
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  {...editForm.register("supportsImageGeneration")}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {t("models.manual.supportsImageGen")}
+                              </label>
+                            </div>
+                            {editForm.watch("supportsThinking") && (
+                              <Field
+                                label={t("models.manual.thinkingBudget")}
+                                error={editForm.formState.errors.thinkingBudgetTokens?.message}
+                              >
+                                <input
+                                  type="number"
+                                  {...editForm.register("thinkingBudgetTokens")}
+                                  className={fieldClasses}
+                                  placeholder="8192"
+                                />
+                              </Field>
+                            )}
                             <div className="flex gap-2 sm:col-span-2">
                               <button
                                 type="submit"
@@ -668,6 +881,37 @@ export function ModelsManageDialog({
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-xs">
                           {formatUsdPerM(m.outputCost)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {m.supportsThinking ? (
+                            <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                              {t("models.status.thinking")}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="flex flex-wrap justify-center gap-1">
+                            {(m.features ?? []).includes("vision") && (
+                              <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                {t("models.status.vision")}
+                              </span>
+                            )}
+                            {(m.features ?? []).includes("audio") && (
+                              <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                {t("models.status.audio")}
+                              </span>
+                            )}
+                            {(m.features ?? []).includes("image-generation") && (
+                              <span className="inline-block rounded-full bg-pink-100 px-2 py-0.5 text-xs font-medium text-pink-700 dark:bg-pink-900/30 dark:text-pink-400">
+                                {t("models.status.imageGen")}
+                              </span>
+                            )}
+                            {!(m.features ?? []).includes("vision") && !(m.features ?? []).includes("audio") && !(m.features ?? []).includes("image-generation") && (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-center">
                           <span

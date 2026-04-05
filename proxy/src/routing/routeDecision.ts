@@ -48,6 +48,7 @@ function evaluateRules(
       confidence: 1.0,
       ruleId: result.ruleId,
       fallbackChain: result.fallbackChain,
+      thinkingStrategy: result.thinkingStrategy,
       latencyMs: 0,
     };
   }

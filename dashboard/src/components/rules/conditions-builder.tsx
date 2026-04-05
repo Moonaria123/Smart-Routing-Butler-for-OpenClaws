@@ -15,6 +15,7 @@ const CONDITION_TYPE_I18N_KEYS: Record<ConditionItem["type"], string> = {
   maxCost: "rule.condition.type.maxCost",
   maxLatency: "rule.condition.type.maxLatency",
   providerHealth: "rule.condition.type.providerHealth",
+  hasModality: "rule.condition.type.hasModality",
 };
 
 function emptyCondition(): ConditionItem {
@@ -205,6 +206,9 @@ function ConditionItemEditor({
           </label>
         </div>
       )}
+      {type === "hasModality" && (
+        <ModalitySelector index={index} watch={watch} setValue={setValue} />
+      )}
     </div>
   );
 }
@@ -223,9 +227,11 @@ function resetConditionParams(
   setValue(`${prefix}.maxLatencyMs`, undefined);
   setValue(`${prefix}.providerName`, undefined);
   setValue(`${prefix}.healthStatus`, undefined);
+  setValue(`${prefix}.modalities`, undefined);
 
   if (newType === "keywords") setValue(`${prefix}.keywords`, []);
   if (newType === "taskType") setValue(`${prefix}.taskTypes`, []);
+  if (newType === "hasModality") setValue(`${prefix}.modalities`, []);
 }
 
 function KeywordsInput({
@@ -328,6 +334,57 @@ function TaskTypeSelector({
           }`}
         >
           {t}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const MODALITY_OPTIONS = ["vision", "audio", "image-generation"] as const;
+const MODALITY_I18N_KEYS: Record<string, string> = {
+  vision: "cond.modality.vision",
+  audio: "cond.modality.audio",
+  "image-generation": "cond.modality.imageGen",
+};
+
+function ModalitySelector({
+  index,
+  watch,
+  setValue,
+}: {
+  index: number;
+  watch: ConditionItemEditorProps["watch"];
+  setValue: ConditionItemEditorProps["setValue"];
+}) {
+  const { t } = useI18n();
+  const selected: string[] =
+    watch(`conditions.items.${index}.modalities`) ?? [];
+
+  function toggle(modality: string) {
+    if (selected.includes(modality)) {
+      setValue(
+        `conditions.items.${index}.modalities`,
+        selected.filter((m) => m !== modality)
+      );
+    } else {
+      setValue(`conditions.items.${index}.modalities`, [...selected, modality]);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {MODALITY_OPTIONS.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => toggle(m)}
+          className={`rounded-md border px-3 py-1 text-sm transition-colors ${
+            selected.includes(m)
+              ? "border-blue-500 bg-blue-50 text-blue-700"
+              : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          {t(MODALITY_I18N_KEYS[m])}
         </button>
       ))}
     </div>

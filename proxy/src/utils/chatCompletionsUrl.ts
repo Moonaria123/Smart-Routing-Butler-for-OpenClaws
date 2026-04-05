@@ -1,4 +1,4 @@
-// OpenAI 兼容 chat/completions URL 拼接——避免误匹配路径中的「v1」子串
+// OpenAI 兼容 URL 拼接——避免误匹配路径中的「v1」子串
 
 /** 将 baseUrl 规范为 chat/completions 完整 URL（与 GenericAdapter 规则一致） */
 export function buildChatCompletionsUrl(baseUrl: string): string {
@@ -15,5 +15,23 @@ export function buildChatCompletionsUrl(baseUrl: string): string {
       return `${base}/chat/completions`;
     }
     return `${base}/v1/chat/completions`;
+  }
+}
+
+/** 将 baseUrl 规范为 images/generations 完整 URL（同 buildChatCompletionsUrl 逻辑） */
+export function buildImageGenerationsUrl(baseUrl: string): string {
+  const base = baseUrl.replace(/\/+$/, "");
+  try {
+    const u = new URL(base);
+    const path = u.pathname.replace(/\/+$/, "") || "";
+    if (path === "/v1" || path.endsWith("/v1")) {
+      return `${base}/images/generations`;
+    }
+    return `${base}/v1/images/generations`;
+  } catch {
+    if (base.endsWith("/v1")) {
+      return `${base}/images/generations`;
+    }
+    return `${base}/v1/images/generations`;
   }
 }

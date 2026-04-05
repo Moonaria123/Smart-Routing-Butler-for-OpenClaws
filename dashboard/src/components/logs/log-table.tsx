@@ -20,6 +20,10 @@ export interface LogEntry {
   statusCode: number;
   streaming: boolean;
   cacheHit: boolean;
+  thinkingEnabled: boolean;
+  modalities: string[];
+  apiTokenId: string | null;
+  apiTokenName: string | null;
 }
 
 interface PaginationInfo {
@@ -41,6 +45,7 @@ const LAYER_STYLES: Record<string, string> = {
   L2_SEMANTIC: "bg-purple-100 text-purple-800",
   L3_ARCH_ROUTER: "bg-orange-100 text-orange-800",
   L3_FALLBACK: "bg-amber-100 text-amber-800",
+  DIRECT: "bg-pink-100 text-pink-800",
 };
 
 function layerBadge(layer: string) {
@@ -85,6 +90,8 @@ function buildExplanation(
       return t("logs.explain.l3Arch", { conf, model });
     case "L3_FALLBACK":
       return t("logs.explain.l3Fallback", { model });
+    case "DIRECT":
+      return t("logs.explain.direct", { model });
     default:
       return t("logs.explain.default", {
         layer: log.routingLayer,
@@ -119,18 +126,21 @@ export function LogTable({ logs, pagination, onPageChange }: LogTableProps) {
               <th className="px-3 py-2 text-left font-medium">{t("logs.table.time")}</th>
               <th className="px-3 py-2 text-left font-medium">{t("logs.table.layer")}</th>
               <th className="px-3 py-2 text-left font-medium">{t("logs.table.model")}</th>
+              <th className="px-3 py-2 text-left font-medium">{t("logs.table.token")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("logs.table.latency")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("logs.table.tokens")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("logs.table.cost")}</th>
               <th className="px-3 py-2 text-center font-medium">{t("logs.table.status")}</th>
               <th className="px-3 py-2 text-center font-medium">{t("logs.table.streaming")}</th>
               <th className="px-3 py-2 text-center font-medium">{t("logs.table.cache")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("logs.table.thinking")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("logs.table.modality")}</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">
                   {t("logs.empty")}
                 </td>
               </tr>
@@ -220,6 +230,9 @@ function LogRow({
         <td className="max-w-[200px] truncate px-3 py-2 font-mono text-xs">
           {log.targetModel}
         </td>
+        <td className="max-w-[120px] truncate px-3 py-2 text-xs">
+          {log.apiTokenName ?? "—"}
+        </td>
         <td className="px-3 py-2 text-right tabular-nums">{log.latencyMs}</td>
         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
           {log.inputTokens}/{log.outputTokens}
@@ -250,10 +263,40 @@ function LogRow({
             <span className="text-muted-foreground">—</span>
           )}
         </td>
+        <td className="px-3 py-2 text-center">
+          {log.thinkingEnabled ? (
+            <span className="text-purple-600">✓</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </td>
+        <td className="px-3 py-2 text-center">
+          {(log.modalities ?? []).filter((m) => m !== "text").length > 0 ? (
+            <div className="flex flex-wrap justify-center gap-1">
+              {log.modalities.includes("vision") && (
+                <span className="inline-block rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  vision
+                </span>
+              )}
+              {log.modalities.includes("audio") && (
+                <span className="inline-block rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  audio
+                </span>
+              )}
+              {log.modalities.includes("image-generation") && (
+                <span className="inline-block rounded-full bg-pink-100 px-1.5 py-0.5 text-xs font-medium text-pink-700 dark:bg-pink-900/30 dark:text-pink-400">
+                  image-gen
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </td>
       </tr>
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={9} className="px-4 py-3">
+          <td colSpan={12} className="px-4 py-3">
             <div className="space-y-1 text-sm">
               <p className="font-medium text-foreground">
                 {buildExplanation(log, t)}

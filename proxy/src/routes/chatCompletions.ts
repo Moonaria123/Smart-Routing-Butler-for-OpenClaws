@@ -7,6 +7,7 @@ import { AppError } from "../middleware/errorHandler.js";
 import { validate } from "../middleware/validate.js";
 import { logger } from "../utils/logger.js";
 import { estimateMessagesTokens } from "../utils/tokenEstimator.js";
+import { detectModalities } from "../utils/multimodal.js";
 import { makeRouteDecision } from "../routing/routeDecision.js";
 import { resolveProvider } from "../providers/registry.js";
 import { logRequest } from "../cache/requestLogger.js";
@@ -23,13 +24,42 @@ import { UpstreamCallError } from "../types/errors.js";
 import { scheduleRuleHitUpdate } from "../routing/ruleHit.js";
 import { estimateCostUsd } from "../utils/costEstimate.js";
 
+// --- 多模态 content 校验 (ISSUE-V5-16) ---
+const textContentPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+});
+const imageUrlContentPartSchema = z.object({
+  type: z.literal("image_url"),
+  image_url: z.object({
+    url: z.string(),
+    detail: z.enum(["auto", "low", "high"]).optional(),
+  }),
+});
+const inputAudioContentPartSchema = z.object({
+  type: z.literal("input_audio"),
+  input_audio: z.object({
+    data: z.string(),
+    format: z.enum(["wav", "mp3"]),
+  }),
+});
+const contentPartSchema = z.discriminatedUnion("type", [
+  textContentPartSchema,
+  imageUrlContentPartSchema,
+  inputAudioContentPartSchema,
+]);
+const messageContentSchema = z.union([
+  z.string(),
+  z.array(contentPartSchema).min(1),
+]);
+
 export const chatCompletionSchema = z.object({
   model: z.string().default("auto"),
   messages: z
     .array(
       z.object({
         role: z.enum(["system", "user", "assistant", "tool"]),
-        content: z.string(),
+        content: messageContentSchema,
         name: z.string().optional(),
       }),
     )
@@ -42,6 +72,10 @@ export const chatCompletionSchema = z.object({
   presence_penalty: z.number().min(-2).max(2).optional(),
   stop: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
   user: z.string().optional(),
+  thinking: z.object({
+    enabled: z.boolean(),
+    budget_tokens: z.number().int().positive().optional(),
+  }).optional(),
 });
 
 type ChatBody = z.infer<typeof chatCompletionSchema>;
@@ -52,6 +86,8 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
   const startTime = performance.now();
   const body = req.body as ChatBody;
   const estimatedTokens = estimateMessagesTokens(body.messages);
+  const detectedModalities = detectModalities(body.messages);
+  const apiToken = (res.locals as Record<string, unknown>).apiToken as { id: string | null; name: string | null } | undefined;
 
   const output = await makeRouteDecision(body.model, body.messages, estimatedTokens);
 
@@ -76,6 +112,10 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
       },
       body.stream,
       true,
+      body.thinking?.enabled ?? false,
+      detectedModalities,
+      apiToken?.id ?? null,
+      apiToken?.name ?? null,
     );
     return;
   }
@@ -94,6 +134,7 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
     response: globalThis.Response;
     resolvedTarget: string;
     modelId: string;
+    effectiveThinkingEnabled: boolean;
   }
 
   const retryInvalidL1 =
@@ -131,11 +172,34 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
         throw err;
       }
 
+      // 能力软门控 (ISSUE-V5-16)：多模态请求优先路由到具备对应能力的模型
+      const modelFeatures = resolved.modelConfig?.features ?? [];
+      if (
+        detectedModalities.includes("vision") &&
+        !modelFeatures.includes("vision") &&
+        fallbackTargets.length > 1
+      ) {
+        logger.warn("模型不支持视觉能力，尝试 fallback", { target: chainTarget });
+        lastChainError = new Error(`模型 ${chainTarget} 不支持视觉内容`);
+        continue;
+      }
+      if (
+        detectedModalities.includes("audio") &&
+        !modelFeatures.includes("audio") &&
+        fallbackTargets.length > 1
+      ) {
+        logger.warn("模型不支持音频能力，尝试 fallback", { target: chainTarget });
+        lastChainError = new Error(`模型 ${chainTarget} 不支持音频内容`);
+        continue;
+      }
+
       try {
         providerCallResult = await executeWithCircuitBreaker(
           chainTarget,
           async () => {
-            const providerBody = buildRequestBody(body, resolved.modelId);
+            const providerBody = buildRequestBody(body, resolved.modelId, resolved.modelConfig, output.decision.thinkingStrategy);
+            const thinkingField = providerBody.thinking as { enabled?: boolean } | undefined;
+            const effectiveThinking = !!(thinkingField?.enabled);
             const controller = new AbortController();
             const timeoutHandle = setTimeout(() => controller.abort(), config.timeouts.providerApi);
 
@@ -166,6 +230,7 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
               response: resp,
               resolvedTarget: chainTarget,
               modelId: resolved.modelId,
+              effectiveThinkingEnabled: effectiveThinking,
             };
           },
         );
@@ -269,6 +334,10 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
       },
       true,
       output.decision.layer === "L0_EXACT_CACHE" || output.decision.layer === "L0.5_SEMANTIC_CACHE",
+      providerCallResult.effectiveThinkingEnabled,
+      detectedModalities,
+      apiToken?.id ?? null,
+      apiToken?.name ?? null,
     );
   } else {
     try {
@@ -301,6 +370,10 @@ router.post("/", validate(chatCompletionSchema), async (req: Request, res: Expre
         },
         false,
         output.decision.layer === "L0_EXACT_CACHE" || output.decision.layer === "L0.5_SEMANTIC_CACHE",
+        providerCallResult.effectiveThinkingEnabled,
+        detectedModalities,
+        apiToken?.id ?? null,
+        apiToken?.name ?? null,
       );
     } catch (err) {
       if (err instanceof AppError) throw err;
@@ -347,7 +420,12 @@ async function getFallbackTargets(
   return ordered;
 }
 
-function buildRequestBody(body: ChatBody, modelId: string): Record<string, unknown> {
+function buildRequestBody(
+  body: ChatBody,
+  modelId: string,
+  modelConfig?: { supportsThinking: boolean; defaultThinking: Record<string, unknown> },
+  ruleThinkingStrategy?: "auto" | "enabled" | "disabled",
+): Record<string, unknown> {
   const result: Record<string, unknown> = {
     model: modelId,
     messages: body.messages,
@@ -359,6 +437,36 @@ function buildRequestBody(body: ChatBody, modelId: string): Record<string, unkno
   if (body.presence_penalty !== undefined) result.presence_penalty = body.presence_penalty;
   if (body.stop !== undefined) result.stop = body.stop;
   if (body.user !== undefined) result.user = body.user;
+
+  // thinking / reasoning 优先级：规则强制 > 请求显式传入 > 模型 DB 默认
+  if (ruleThinkingStrategy === "disabled") {
+    // 规则强制关闭——不传 thinking
+  } else if (ruleThinkingStrategy === "enabled") {
+    // 规则强制开启——使用请求参数或 DB 默认
+    if (body.thinking !== undefined) {
+      result.thinking = body.thinking;
+    } else if (
+      modelConfig?.defaultThinking &&
+      typeof modelConfig.defaultThinking === "object" &&
+      Object.keys(modelConfig.defaultThinking).length > 0
+    ) {
+      result.thinking = { ...modelConfig.defaultThinking, enabled: true };
+    } else {
+      result.thinking = { enabled: true, budget_tokens: 4096 };
+    }
+  } else {
+    // auto（默认）——请求显式传入优先；否则且模型支持则使用 DB 默认
+    if (body.thinking !== undefined) {
+      result.thinking = body.thinking;
+    } else if (
+      modelConfig?.supportsThinking &&
+      modelConfig.defaultThinking &&
+      typeof modelConfig.defaultThinking === "object" &&
+      (modelConfig.defaultThinking as Record<string, unknown>).enabled === true
+    ) {
+      result.thinking = modelConfig.defaultThinking;
+    }
+  }
   return result;
 }
 
@@ -377,6 +485,10 @@ function emitLog(
   },
   streaming: boolean,
   cacheHit: boolean,
+  thinkingEnabled: boolean,
+  modalities: string[],
+  apiTokenId: string | null,
+  apiTokenName: string | null,
 ): void {
   const totalLatency = performance.now() - startTime;
   logRequest({
@@ -392,5 +504,9 @@ function emitLog(
     statusCode: usage.statusCode,
     streaming,
     cacheHit,
+    thinkingEnabled,
+    modalities,
+    apiTokenId,
+    apiTokenName,
   });
 }

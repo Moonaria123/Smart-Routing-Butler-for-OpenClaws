@@ -10,6 +10,7 @@ const putSchema = z.object({
   fallbackOnInvalidL1Target: z.boolean().optional(),
   routingEnableL2: z.boolean().optional(),
   routingEnableL3: z.boolean().optional(),
+  enableImageGeneration: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -24,6 +25,7 @@ export async function GET() {
           "fallback_on_invalid_l1_target",
           "routing_enable_l2",
           "routing_enable_l3",
+          "enable_image_generation",
         ],
       },
     },
@@ -33,6 +35,7 @@ export async function GET() {
   let fallbackOnInvalidL1Target = false;
   let routingEnableL2 = true;
   let routingEnableL3 = true;
+  let enableImageGeneration = true;
 
   for (const r of rows) {
     if (r.key === "semantic_cache_check_timeout_ms") {
@@ -51,6 +54,10 @@ export async function GET() {
       const v = r.value as { enabled?: boolean };
       if (typeof v.enabled === "boolean") routingEnableL3 = v.enabled;
     }
+    if (r.key === "enable_image_generation") {
+      const v = r.value as { enabled?: boolean };
+      if (typeof v.enabled === "boolean") enableImageGeneration = v.enabled;
+    }
   }
 
   return NextResponse.json({
@@ -58,6 +65,7 @@ export async function GET() {
     fallbackOnInvalidL1Target,
     routingEnableL2,
     routingEnableL3,
+    enableImageGeneration,
   });
 }
 
@@ -130,6 +138,19 @@ export async function PUT(request: Request) {
           value: { enabled: parsed.data.routingEnableL3 },
         },
         update: { value: { enabled: parsed.data.routingEnableL3 } },
+      })
+    );
+  }
+
+  if (parsed.data.enableImageGeneration !== undefined) {
+    ops.push(
+      db.systemConfig.upsert({
+        where: { key: "enable_image_generation" },
+        create: {
+          key: "enable_image_generation",
+          value: { enabled: parsed.data.enableImageGeneration },
+        },
+        update: { value: { enabled: parsed.data.enableImageGeneration } },
       })
     );
   }

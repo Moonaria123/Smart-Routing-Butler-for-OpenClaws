@@ -1,6 +1,7 @@
 // Anthropic 适配器——OpenAI 格式 ↔ Anthropic Messages API 格式双向转换
 import type { ProviderAdapter, ProviderRequestParams } from "./base.js";
-import type { ChatCompletionResponse } from "../types/index.js";
+import type { ChatCompletionResponse, MessageContent } from "../types/index.js";
+import { extractText } from "../utils/multimodal.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MAX_TOKENS = 4096;
@@ -136,19 +137,54 @@ function transformAnthropicSSE(
   });
 }
 
+/**
+ * Convert OpenAI-style multimodal content to Anthropic content format.
+ * - string → string (unchanged)
+ * - array of content parts → mapped to Anthropic content blocks
+ * - fallback → String(content)
+ */
+function convertContentForAnthropic(content: unknown): unknown {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part: Record<string, unknown>) => {
+      if (part.type === "text") {
+        return { type: "text", text: part.text };
+      }
+      if (part.type === "image_url") {
+        const imageUrl = part.image_url as { url: string } | undefined;
+        const url = imageUrl?.url ?? "";
+        const dataUriMatch = url.match(/^data:(image\/[^;]+);base64,(.+)$/s);
+        if (dataUriMatch) {
+          return {
+            type: "image",
+            source: { type: "base64", media_type: dataUriMatch[1], data: dataUriMatch[2] },
+          };
+        }
+        return { type: "image", source: { type: "url", url } };
+      }
+      if (part.type === "input_audio") {
+        return { type: "text", text: "[audio content]" };
+      }
+      return { type: "text", text: String(part.text ?? "") };
+    });
+  }
+  return String(content);
+}
+
 export class AnthropicAdapter implements ProviderAdapter {
   async sendRequest(params: ProviderRequestParams): Promise<Response> {
     const { baseUrl, apiKey, body, stream, signal } = params;
 
-    const messages = body.messages as Array<{ role: string; content: string }>;
+    const messages = body.messages as Array<{ role: string; content: unknown }>;
     let systemPrompt: string | undefined;
-    const filteredMessages: Array<{ role: string; content: string }> = [];
+    const filteredMessages: Array<{ role: string; content: unknown }> = [];
 
     for (const msg of messages) {
       if (msg.role === "system") {
-        systemPrompt = systemPrompt ? `${systemPrompt}\n${msg.content}` : msg.content;
+        const text = extractText(msg.content as MessageContent);
+        systemPrompt = systemPrompt ? `${systemPrompt}\n${text}` : text;
       } else {
-        filteredMessages.push({ role: msg.role, content: msg.content });
+        filteredMessages.push({ role: msg.role, content: convertContentForAnthropic(msg.content) });
       }
     }
 
@@ -162,6 +198,13 @@ export class AnthropicAdapter implements ProviderAdapter {
     if (systemPrompt) anthropicBody.system = systemPrompt;
     if (body.temperature !== undefined) anthropicBody.temperature = body.temperature;
     if (body.top_p !== undefined) anthropicBody.top_p = body.top_p;
+    const thinking = body.thinking as { enabled?: boolean; budget_tokens?: number } | undefined;
+    if (thinking?.enabled) {
+      anthropicBody.thinking = {
+        type: "enabled",
+        budget_tokens: thinking.budget_tokens ?? 4096,
+      };
+    }
     if (body.stop !== undefined) {
       const stop = body.stop;
       anthropicBody.stop_sequences = Array.isArray(stop) ? stop : (typeof stop === "string" ? [stop] : undefined);

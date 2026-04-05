@@ -14,6 +14,12 @@ const createSchema = z.object({
   inputCost: z.number().min(0).optional().default(0),
   outputCost: z.number().min(0).optional().default(0),
   enabled: z.boolean().optional().default(true),
+  supportsThinking: z.boolean().optional().default(false),
+  defaultThinking: z.object({
+    enabled: z.boolean().optional().default(false),
+    budget_tokens: z.number().int().positive().nullable().optional().default(null),
+  }).optional().default({}),
+  features: z.array(z.string()).optional().default([]),
 });
 
 export async function GET(_request: NextRequest, ctx: RouteCtx) {
@@ -41,6 +47,9 @@ export async function GET(_request: NextRequest, ctx: RouteCtx) {
       inputCost: true,
       outputCost: true,
       enabled: true,
+      supportsThinking: true,
+      defaultThinking: true,
+      features: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -88,8 +97,10 @@ export async function POST(request: NextRequest, ctx: RouteCtx) {
         inputCost: parsed.data.inputCost,
         outputCost: parsed.data.outputCost,
         enabled: parsed.data.enabled,
+        supportsThinking: parsed.data.supportsThinking,
+        defaultThinking: parsed.data.defaultThinking as object,
         defaultParams: {},
-        features: [],
+        features: parsed.data.features,
       },
     });
     return NextResponse.json(model, { status: 201 });

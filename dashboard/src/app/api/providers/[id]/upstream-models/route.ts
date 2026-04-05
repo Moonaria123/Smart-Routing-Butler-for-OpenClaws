@@ -1,4 +1,4 @@
-// GET /api/providers/:id/upstream-models — 请求上游 GET /v1/models 返回可用 modelId 列表
+// GET /api/providers/:id/upstream-models — 请求上游 GET /v1/models 返回可用模型列表（含元数据）
 // OpenAI/兼容使用 Bearer；Anthropic 使用 x-api-key + anthropic-version
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -6,6 +6,7 @@ import { decrypt } from "@/lib/crypto";
 import { requireSession } from "@/lib/auth-guard";
 import { isUrlSafe } from "@/lib/url-validator";
 import { buildOpenAiCompatibleModelsListUrl } from "@/lib/openai-compatible-url";
+import { getRedis } from "@/lib/redis";
 import {
   DASHSCOPE_CODING_NO_MODELS_LIST_HINT,
   isLikelyDashScopeCodingOpenAiBase,
@@ -15,15 +16,45 @@ type RouteCtx = { params: Promise<{ id: string }> };
 
 const FETCH_TIMEOUT_MS = 15_000;
 
+/** 速率限制：每用户 5 次/分钟 */
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_SEC = 60;
+
+/** Lua 原子限流脚本（CR-SEC-02：INCR + EXPIRE 原子化） */
+const RATE_LIMIT_LUA = `
+local key = KEYS[1]
+local window = tonumber(ARGV[1])
+local count = redis.call('INCR', key)
+if count == 1 then
+  redis.call('EXPIRE', key, window)
+end
+return count
+`;
+
+async function checkRateLimit(userId: string): Promise<boolean> {
+  const redis = getRedis();
+  const key = `upstream_fetch:${userId}`;
+  const count = (await redis.eval(RATE_LIMIT_LUA, 1, key, RATE_LIMIT_WINDOW_SEC)) as number;
+  return count > RATE_LIMIT_MAX;
+}
+
+export interface UpstreamModel {
+  id: string;
+  owned_by?: string;
+  created?: number;
+}
+
 type OpenAiModelsJson = {
   data?: unknown;
 };
 
-function parseModelIds(body: unknown): string[] {
+/** 解析上游 /v1/models 响应，提取 id + 元数据 */
+function parseModels(body: unknown): UpstreamModel[] {
   if (typeof body !== "object" || body === null) return [];
   const data = (body as OpenAiModelsJson).data;
   if (!Array.isArray(data)) return [];
-  const ids: string[] = [];
+  const seen = new Set<string>();
+  const models: UpstreamModel[] = [];
   for (const item of data) {
     if (
       typeof item === "object" &&
@@ -32,15 +63,33 @@ function parseModelIds(body: unknown): string[] {
       typeof (item as { id: unknown }).id === "string"
     ) {
       const id = (item as { id: string }).id.trim();
-      if (id.length > 0) ids.push(id);
+      if (id.length > 0 && !seen.has(id)) {
+        seen.add(id);
+        const m: UpstreamModel = { id };
+        if ("owned_by" in item && typeof (item as { owned_by: unknown }).owned_by === "string") {
+          m.owned_by = (item as { owned_by: string }).owned_by;
+        }
+        if ("created" in item && typeof (item as { created: unknown }).created === "number") {
+          m.created = (item as { created: number }).created;
+        }
+        models.push(m);
+      }
     }
   }
-  return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+  return models.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function GET(_request: NextRequest, ctx: RouteCtx) {
-  const { error } = await requireSession();
+  const { error, session } = await requireSession();
   if (error) return error;
+
+  // 速率限制
+  if (await checkRateLimit(session!.user.id)) {
+    return NextResponse.json(
+      { error: "请求过于频繁，请稍后再试" },
+      { status: 429 },
+    );
+  }
 
   const { id: providerId } = await ctx.params;
 
@@ -99,7 +148,7 @@ export async function GET(_request: NextRequest, ctx: RouteCtx) {
         (res.status === 404 || res.status === 405)
       ) {
         return NextResponse.json({
-          models: [] as string[],
+          models: [] as UpstreamModel[],
           hint: DASHSCOPE_CODING_NO_MODELS_LIST_HINT,
         });
       }
@@ -122,7 +171,7 @@ export async function GET(_request: NextRequest, ctx: RouteCtx) {
       );
     }
 
-    const models = parseModelIds(json);
+    const models = parseModels(json);
     return NextResponse.json({ models });
   } catch (e) {
     clearTimeout(timeout);

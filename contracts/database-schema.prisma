@@ -47,8 +47,10 @@ model Model {
   contextWindow Int      @default(128000)
   inputCost     Float    @default(0) // 美元 / 百万 input tokens
   outputCost    Float    @default(0) // 美元 / 百万 output tokens
-  defaultParams Json     @default("{}") // {"temperature": 0.7, "max_tokens": 4096}
-  features      String[] // ["code", "long-context", "vision", "fast", "low-cost"]
+  defaultParams    Json     @default("{}") // {"temperature": 0.7, "max_tokens": 4096}
+  supportsThinking Boolean  @default(false) // 模型是否支持 thinking / reasoning 模式
+  defaultThinking  Json     @default("{}") // {"enabled": false, "budget_tokens": null}
+  features         String[] // ["code", "long-context", "vision", "fast", "low-cost", "image-generation"]
   enabled       Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -67,6 +69,7 @@ model Rule {
   conditions    Json      // { combinator: "AND"|"OR", items: [{type, ...params}] }
   targetModel   String    // 格式："provider-name/model-id"
   fallbackChain String[]  // 最多 3 个备用模型，格式同 targetModel
+  thinkingStrategy String @default("auto") // "auto" | "enabled" | "disabled"
   description   String?
   descriptionEn String?   // 英文描述（可选）
   hitCount      Int       @default(0)
@@ -81,7 +84,7 @@ model Rule {
 model RequestLog {
   id               String   @id @default(cuid())
   timestamp        DateTime @default(now())
-  routingLayer     String   // "L0_EXACT_CACHE" | "L0.5_SEMANTIC_CACHE" | "L1_RULE" | "L2_SEMANTIC" | "L3_ARCH_ROUTER" | "L3_FALLBACK"
+  routingLayer     String   // "L0_EXACT_CACHE" | "L0.5_SEMANTIC_CACHE" | "L1_RULE" | "L2_SEMANTIC" | "L3_ARCH_ROUTER" | "L3_FALLBACK" | "DIRECT"
   ruleId           String?  // 命中的规则 ID（仅 L1 有值）
   targetModel      String   // 实际路由到的模型
   confidence       Float?   // 路由置信度（L2/L3 有值）
@@ -93,6 +96,10 @@ model RequestLog {
   statusCode       Int      @default(200)
   streaming        Boolean  @default(false)
   cacheHit         Boolean  @default(false)
+  thinkingEnabled  Boolean  @default(false) // 请求是否启用了 thinking 模式
+  modalities       String[] @default(["text"]) // 请求包含的模态类型 ["text"] | ["text","vision"] | ["text","audio"] | ["image-generation"] 等
+  apiTokenId       String?  // 发起请求的 API Token ID（反规范化，无 FK）
+  apiTokenName     String?  // 发起请求的 API Token 名称（反规范化，便于展示与筛选）
   createdAt        DateTime @default(now())
   // 注意：无 updatedAt —— 只写表
 
@@ -101,6 +108,7 @@ model RequestLog {
   @@index([targetModel])
   @@index([statusCode])
   @@index([timestamp, statusCode])
+  @@index([apiTokenId])
   @@map("request_logs")
 }
 

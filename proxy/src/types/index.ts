@@ -1,8 +1,30 @@
 // 共享类型定义——与 contracts/database-schema.prisma 和 contracts/api-contracts.md 对齐
 
+// --- 多模态内容类型 (ISSUE-V5-16) ---
+
+export interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+export interface ImageUrlContentPart {
+  type: "image_url";
+  image_url: { url: string; detail?: "auto" | "low" | "high" };
+}
+
+export interface InputAudioContentPart {
+  type: "input_audio";
+  input_audio: { data: string; format: "wav" | "mp3" };
+}
+
+export type ContentPart = TextContentPart | ImageUrlContentPart | InputAudioContentPart;
+
+/** 消息内容：纯文本字符串，或 OpenAI 兼容的多模态内容块数组 */
+export type MessageContent = string | ContentPart[];
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content: MessageContent;
   name?: string;
 }
 
@@ -90,7 +112,32 @@ export type RoutingLayer =
   | "L1_RULE"
   | "L2_SEMANTIC"
   | "L3_ARCH_ROUTER"
-  | "L3_FALLBACK";
+  | "L3_FALLBACK"
+  | "DIRECT";
+
+// --- 图片生成类型 (ISSUE-V5-16) ---
+
+export interface ImageGenerationRequest {
+  prompt: string;
+  model?: string;
+  n?: number;
+  size?: string;
+  quality?: string;
+  response_format?: "url" | "b64_json";
+  style?: string;
+  user?: string;
+}
+
+export interface ImageGenerationDataItem {
+  url?: string;
+  b64_json?: string;
+  revised_prompt?: string;
+}
+
+export interface ImageGenerationResponse {
+  created: number;
+  data: ImageGenerationDataItem[];
+}
 
 export interface RouteDecisionResult {
   matched: boolean;
@@ -100,6 +147,8 @@ export interface RouteDecisionResult {
   ruleId?: string;
   /** L1 命中时来自规则的 fallback 链（优先于全局模型列表） */
   fallbackChain?: string[];
+  /** L1 命中时来自规则的 thinking 策略 */
+  thinkingStrategy?: "auto" | "enabled" | "disabled";
   routeName?: string;
   latencyMs: number;
 }
@@ -112,7 +161,8 @@ export type ConditionType =
   | "taskType"
   | "maxCost"
   | "maxLatency"
-  | "providerHealth";
+  | "providerHealth"
+  | "hasModality";
 
 export interface RuleConditionItem {
   type: ConditionType;
@@ -124,6 +174,7 @@ export interface RuleConditionItem {
   maxLatencyMs?: number;
   providerName?: string;
   healthStatus?: "green" | "yellow" | "red";
+  modalities?: string[];
 }
 
 export interface RuleConditions {
@@ -139,6 +190,7 @@ export interface Rule {
   conditions: RuleConditions;
   targetModel: string;
   fallbackChain: string[];
+  thinkingStrategy: "auto" | "enabled" | "disabled";
   description: string | null;
   hitCount: number;
   lastHitAt: Date | null;

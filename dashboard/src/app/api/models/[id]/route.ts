@@ -14,6 +14,12 @@ const updateSchema = z.object({
   inputCost: z.number().min(0).optional(),
   outputCost: z.number().min(0).optional(),
   enabled: z.boolean().optional(),
+  supportsThinking: z.boolean().optional(),
+  defaultThinking: z.object({
+    enabled: z.boolean().optional().default(false),
+    budget_tokens: z.number().int().positive().nullable().optional().default(null),
+  }).optional(),
+  features: z.array(z.string()).optional(),
 });
 
 export async function PUT(request: NextRequest, ctx: RouteCtx) {
@@ -54,6 +60,9 @@ export async function PUT(request: NextRequest, ctx: RouteCtx) {
         ...(parsed.data.inputCost !== undefined && { inputCost: parsed.data.inputCost }),
         ...(parsed.data.outputCost !== undefined && { outputCost: parsed.data.outputCost }),
         ...(parsed.data.enabled !== undefined && { enabled: parsed.data.enabled }),
+        ...(parsed.data.supportsThinking !== undefined && { supportsThinking: parsed.data.supportsThinking }),
+        ...(parsed.data.defaultThinking !== undefined && { defaultThinking: parsed.data.defaultThinking as object }),
+        ...(parsed.data.features !== undefined && { features: parsed.data.features }),
       },
     });
     return NextResponse.json(model);

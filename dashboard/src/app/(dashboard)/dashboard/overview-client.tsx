@@ -18,6 +18,8 @@ interface OverviewData {
   cacheHitRate: number;
   hourlyData: { hour: number; requests: number }[];
   providerDistribution: { model: string; count: number }[];
+  tokenDistribution?: { name: string | null; count: number }[];
+  imageGenRequests?: number;
 }
 
 interface LatencyPercentileRow {
@@ -179,6 +181,19 @@ export function DashboardOverviewClient() {
         </div>
       </div>
 
+      {/* Token 使用分布 */}
+      {data.tokenDistribution && data.tokenDistribution.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">
+            {t("overview.tokenDistribution")}
+          </h2>
+          <TokenDistribution
+            data={data.tokenDistribution}
+            emptyLabel={t("overview.tokenDistEmpty")}
+          />
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">{t("overview.latency.title")}</h2>
@@ -329,6 +344,63 @@ function ProviderDistribution({
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="truncate font-medium" title={d.model}>
                 {d.model}
+              </span>
+              <span className="ml-2 text-muted-foreground">
+                {d.count} ({pct}%)
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn("h-full rounded-full transition-all", colors[i % colors.length])}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TokenDistribution({
+  data,
+  emptyLabel,
+}: {
+  data: { name: string | null; count: number }[];
+  emptyLabel: string;
+}) {
+  if (data.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {emptyLabel}
+      </p>
+    );
+  }
+
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const colors = [
+    "bg-teal-500",
+    "bg-indigo-500",
+    "bg-rose-500",
+    "bg-amber-500",
+    "bg-cyan-500",
+    "bg-violet-500",
+    "bg-green-500",
+    "bg-blue-500",
+    "bg-orange-500",
+    "bg-pink-500",
+  ];
+
+  return (
+    <div className="space-y-3">
+      {data.map((d, i) => {
+        const pct = Math.round((d.count / total) * 100);
+        const label = d.name ?? "Unknown";
+        return (
+          <div key={label}>
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="truncate font-medium" title={label}>
+                {label}
               </span>
               <span className="ml-2 text-muted-foreground">
                 {d.count} ({pct}%)

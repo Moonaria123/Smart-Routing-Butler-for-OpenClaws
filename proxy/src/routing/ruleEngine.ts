@@ -8,6 +8,7 @@ import type {
 } from "../types/index.js";
 import { getDbPool } from "../cache/db.js";
 import { estimateMessagesTokens } from "../utils/tokenEstimator.js";
+import { extractText, detectModalities } from "../utils/multimodal.js";
 import { logger } from "../utils/logger.js";
 import {
   detectTaskType,
@@ -21,6 +22,7 @@ let cachedRules: Rule[] = [];
 interface ModelLookupInfo {
   inputCost: number;
   outputCost: number;
+  features: string[];
 }
 
 const cachedModels = new Map<string, ModelLookupInfo>();
@@ -39,7 +41,7 @@ const cachedProviderHealth = new Map<string, ProviderHealthInfo>();
 function getLastUserMessage(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
-    if (msg?.role === "user") return msg.content;
+    if (msg?.role === "user") return extractText(msg.content);
   }
   return "";
 }
@@ -50,6 +52,7 @@ function evaluateItem(
   estimatedTokens: number,
   detectedTaskType: string,
   targetModel: string,
+  requestModalities: string[],
 ): boolean {
   switch (item.type) {
     case "keywords": {
@@ -96,6 +99,11 @@ function evaluateItem(
       return health.status === item.healthStatus;
     }
 
+    case "hasModality": {
+      if (!item.modalities?.length) return false;
+      return item.modalities.some((m) => requestModalities.includes(m));
+    }
+
     default:
       return false;
   }
@@ -107,6 +115,7 @@ function evaluateConditions(
   estimatedTokens: number,
   detectedTaskType: string,
   targetModel: string,
+  requestModalities: string[],
 ): boolean {
   const { combinator, items } = conditions;
   if (!items.length) return false;
@@ -119,6 +128,7 @@ function evaluateConditions(
         estimatedTokens,
         detectedTaskType,
         targetModel,
+        requestModalities,
       ),
     );
   }
@@ -131,6 +141,7 @@ function evaluateConditions(
       estimatedTokens,
       detectedTaskType,
       targetModel,
+      requestModalities,
     ),
   );
 }
@@ -149,6 +160,7 @@ export function matchRule(
   const tokens = estimatedTokens ?? estimateMessagesTokens(messages);
   const lastUserMessage = getLastUserMessage(messages);
   const detectedTaskType = detectTaskType(lastUserMessage);
+  const requestModalities = detectModalities(messages);
 
   for (const rule of cachedRules) {
     if (!rule.enabled) continue;
@@ -160,6 +172,7 @@ export function matchRule(
         tokens,
         detectedTaskType,
         rule.targetModel,
+        requestModalities,
       )
     ) {
       return {
@@ -169,6 +182,7 @@ export function matchRule(
         confidence: 1.0,
         ruleId: rule.id,
         fallbackChain: rule.fallbackChain ?? [],
+        thinkingStrategy: rule.thinkingStrategy ?? "auto",
         latencyMs: performance.now() - start,
       };
     }
@@ -189,13 +203,14 @@ export async function loadRules(): Promise<void> {
     conditions: RuleConditions;
     targetModel: string;
     fallbackChain: string[];
+    thinkingStrategy: string;
     description: string | null;
     hitCount: number;
     lastHitAt: Date | null;
   }>(
     `SELECT id, name, priority, enabled, conditions,
-            "targetModel", "fallbackChain", description,
-            "hitCount", "lastHitAt"
+            "targetModel", "fallbackChain", "thinkingStrategy",
+            description, "hitCount", "lastHitAt"
      FROM rules
      ORDER BY priority DESC`,
   );
@@ -211,6 +226,7 @@ export async function loadRules(): Promise<void> {
         : r.conditions,
     targetModel: r.targetModel,
     fallbackChain: r.fallbackChain ?? [],
+    thinkingStrategy: (r.thinkingStrategy as Rule["thinkingStrategy"]) ?? "auto",
     description: r.description,
     hitCount: r.hitCount,
     lastHitAt: r.lastHitAt,
@@ -228,8 +244,9 @@ export async function loadModels(): Promise<void> {
     inputCost: number;
     outputCost: number;
     providerName: string;
+    features: string[];
   }>(
-    `SELECT m."modelId", m."inputCost", m."outputCost", p.name AS "providerName"
+    `SELECT m."modelId", m."inputCost", m."outputCost", p.name AS "providerName", m.features
      FROM models m
      JOIN providers p ON m."providerId" = p.id
      WHERE m.enabled = true AND p.enabled = true`,
@@ -240,6 +257,7 @@ export async function loadModels(): Promise<void> {
     cachedModels.set(`${row.providerName}/${row.modelId}`, {
       inputCost: row.inputCost,
       outputCost: row.outputCost,
+      features: row.features ?? [],
     });
   }
 

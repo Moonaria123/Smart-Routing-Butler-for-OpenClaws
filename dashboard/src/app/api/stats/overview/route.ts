@@ -23,6 +23,25 @@ interface CostRow {
   total_cost: number;
 }
 
+interface ThinkingRow {
+  total: bigint;
+  thinking_count: bigint;
+}
+
+interface MultimodalRow {
+  total: bigint;
+  multimodal_count: bigint;
+}
+
+interface ImageGenRow {
+  image_gen_count: bigint;
+}
+
+interface TokenRow {
+  apitokenname: string | null;
+  count: bigint;
+}
+
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
@@ -34,7 +53,7 @@ export async function GET() {
   const h24Ago = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   try {
-    const [countResult, costResult, cacheResult, hourlyResult, providerResult] =
+    const [countResult, costResult, cacheResult, hourlyResult, providerResult, thinkingResult, multimodalResult, tokenResult, imageGenResult] =
       await Promise.all([
         db.requestLog.count({
           where: { timestamp: { gte: todayStart } },
@@ -74,6 +93,40 @@ export async function GET() {
           ORDER BY count DESC
           LIMIT 10
         `,
+
+        db.$queryRaw<ThinkingRow[]>`
+          SELECT
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE "thinkingEnabled" = true)::bigint as thinking_count
+          FROM request_logs
+          WHERE timestamp >= ${todayStart}
+        `,
+
+        db.$queryRaw<MultimodalRow[]>`
+          SELECT
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE array_length(modalities, 1) > 1)::bigint as multimodal_count
+          FROM request_logs
+          WHERE timestamp >= ${todayStart}
+        `,
+
+        db.$queryRaw<TokenRow[]>`
+          SELECT
+            "apiTokenName" as apitokenname,
+            COUNT(*)::bigint as count
+          FROM request_logs
+          WHERE timestamp >= ${todayStart} AND "apiTokenId" IS NOT NULL
+          GROUP BY "apiTokenName"
+          ORDER BY count DESC
+          LIMIT 10
+        `,
+
+        db.$queryRaw<ImageGenRow[]>`
+          SELECT
+            COUNT(*) FILTER (WHERE 'image-generation' = ANY(modalities))::bigint as image_gen_count
+          FROM request_logs
+          WHERE timestamp >= ${todayStart}
+        `,
       ]);
 
     const todayRequests = countResult;
@@ -97,6 +150,25 @@ export async function GET() {
       count: Number(r.count),
     }));
 
+    const thinkingTotal = Number(thinkingResult[0]?.total ?? 0);
+    const thinkingCount = Number(thinkingResult[0]?.thinking_count ?? 0);
+    const thinkingRate = thinkingTotal > 0
+      ? Math.round((thinkingCount / thinkingTotal) * 10000) / 100
+      : 0;
+
+    const multimodalTotal = Number(multimodalResult[0]?.total ?? 0);
+    const multimodalCount = Number(multimodalResult[0]?.multimodal_count ?? 0);
+    const multimodalRate = multimodalTotal > 0
+      ? Math.round((multimodalCount / multimodalTotal) * 10000) / 100
+      : 0;
+
+    const tokenDistribution = tokenResult.map((r) => ({
+      name: r.apitokenname ?? "Unknown",
+      count: Number(r.count),
+    }));
+
+    const imageGenRequests = Number(imageGenResult[0]?.image_gen_count ?? 0);
+
     return NextResponse.json({
       todayRequests,
       todaySpent: Math.round(todaySpent * 10000) / 10000,
@@ -104,6 +176,12 @@ export async function GET() {
       cacheHitRate,
       hourlyData,
       providerDistribution,
+      thinkingRequests: thinkingCount,
+      thinkingRate,
+      multimodalRequests: multimodalCount,
+      multimodalRate,
+      tokenDistribution,
+      imageGenRequests,
     });
   } catch (e) {
     logServerError("stats/overview", e);

@@ -26,6 +26,8 @@ jobs:
             image: smartrouter-router
           - context: dashboard
             image: smartrouter-dashboard
+          - context: test-harness
+            image: smartrouter-router-tester
     steps:
       - uses: actions/checkout@v4
 

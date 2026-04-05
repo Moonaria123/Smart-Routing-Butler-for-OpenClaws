@@ -4,9 +4,11 @@ import { config } from "./config.js";
 import { logger } from "./utils/logger.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { createRateLimiter } from "./middleware/rateLimit.js";
 import chatCompletionsRouter from "./routes/chatCompletions.js";
 import modelsRouter from "./routes/models.js";
 import healthRouter from "./routes/health.js";
+import imageGenerationsRouter from "./routes/imageGenerations.js";
 import {
   getRedis,
   closeRedis,
@@ -22,10 +24,34 @@ const app = express();
 
 app.use(express.json({ limit: "1mb" }));
 
+// ---- SEC-003: 应用层限流 ----
+
+/** 安全 parseInt：NaN 时回退默认值（CR-SEC-04） */
+function safeParseInt(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+const modelsRateLimiter = createRateLimiter({
+  keyPrefix: "rl:models",
+  maxRequests: safeParseInt(process.env.RATE_LIMIT_MODELS_MAX, 30),
+  windowSeconds: safeParseInt(process.env.RATE_LIMIT_MODELS_WINDOW_SEC, 60),
+  keyExtractor: (_req, res) => res.locals.apiToken?.id ?? null,
+});
+
+const healthRateLimiter = createRateLimiter({
+  keyPrefix: "rl:health",
+  maxRequests: safeParseInt(process.env.RATE_LIMIT_HEALTH_MAX, 6),
+  windowSeconds: safeParseInt(process.env.RATE_LIMIT_HEALTH_WINDOW_SEC, 60),
+  keyExtractor: (req) => req.ip ?? req.socket.remoteAddress ?? "unknown",
+});
+
 // ---- 路由挂载 ----
 app.use("/v1/chat/completions", authMiddleware, chatCompletionsRouter);
-app.use("/v1/models", authMiddleware, modelsRouter);
-app.use("/health", healthRouter);
+app.use("/v1/images/generations", authMiddleware, imageGenerationsRouter);
+app.use("/v1/models", authMiddleware, modelsRateLimiter, modelsRouter);
+app.use("/health", healthRateLimiter, healthRouter);
 
 // ---- 错误兜底 ----
 app.use(errorHandler);

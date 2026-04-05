@@ -42,6 +42,7 @@ export async function POST(request: Request) {
           conditions: rule.conditions,
           targetModel: rule.targetModel,
           fallbackChain: rule.fallbackChain,
+          thinkingStrategy: rule.thinkingStrategy,
           description: rule.description,
           descriptionEn: rule.descriptionEn?.trim() || null,
         },

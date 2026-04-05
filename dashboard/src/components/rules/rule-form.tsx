@@ -25,6 +25,7 @@ function ruleRecordToFormData(rule: RuleRecord): RuleFormData {
     conditions: rule.conditions,
     targetModel: rule.targetModel,
     fallbackChain: rule.fallbackChain,
+    thinkingStrategy: (rule as RuleRecord & { thinkingStrategy?: string }).thinkingStrategy as RuleFormData["thinkingStrategy"] ?? "auto",
     description: rule.description ?? undefined,
     descriptionEn: rule.descriptionEn ?? undefined,
   };
@@ -38,6 +39,7 @@ const DEFAULT_VALUES: RuleFormData = {
   conditions: { combinator: "AND", items: [{ type: "keywords", keywords: [] }] },
   targetModel: "",
   fallbackChain: [],
+  thinkingStrategy: "auto",
   description: "",
   descriptionEn: "",
 };
@@ -178,6 +180,18 @@ export function RuleForm({
               {t("rule.form.addFallback")}
             </button>
           )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">{t("rule.form.thinkingStrategy")}</label>
+          <select
+            {...register("thinkingStrategy")}
+            className="w-full rounded-md border px-3 py-2 text-sm bg-background"
+          >
+            <option value="auto">{t("rule.form.thinkingAuto")}</option>
+            <option value="enabled">{t("rule.form.thinkingEnabled")}</option>
+            <option value="disabled">{t("rule.form.thinkingDisabled")}</option>
+          </select>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-1">

@@ -1,5 +1,6 @@
 # Smart Router Butler — Docker Compose 编排
 # 核心五服务：proxy / router / dashboard / postgres / redis
+# Router Tester 独立部署：见仓库根目录 docker-compose.router-tester.yml（无依赖、单独容器）
 # 环境变量：compose/ports.env（宿主机端口）先于 .env 加载，.env 可覆盖同名键（CR-DEF-02）
 
 services:

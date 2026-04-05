@@ -10,7 +10,7 @@
 
 ### POST /v1/chat/completions
 
-OpenAI Chat Completions API 完全兼容端点。
+OpenAI Chat Completions API 完全兼容端点。**无应用层限流**（SSE 长连接兼容；建议在网关/反代层做 per-IP 或连接数限制）。
 
 **请求头**：
 ```
@@ -24,7 +24,13 @@ Content-Type: application/json
   "model": "auto",           // 固定 "auto"，由路由器决策实际模型
   "messages": [
     {"role": "system", "content": "..."},
-    {"role": "user", "content": "..."}
+    {"role": "user", "content": "..."},
+    // 多模态 content 亦可为 ContentPart 数组（V5-16）：
+    {"role": "user", "content": [
+      {"type": "text", "text": "What is in this image?"},
+      {"type": "image_url", "image_url": {"url": "data:image/png;base64,...", "detail": "auto"}},
+      {"type": "input_audio", "input_audio": {"data": "base64...", "format": "wav"}}
+    ]}
   ],
   "stream": true,            // 可选，默认 false
   "temperature": 0.7,        // 可选
@@ -33,7 +39,11 @@ Content-Type: application/json
   "frequency_penalty": 0,    // 可选
   "presence_penalty": 0,     // 可选
   "stop": null,              // 可选
-  "user": "user-id"          // 可选
+  "user": "user-id",         // 可选
+  "thinking": {              // 可选 — 思考/推理模式（V5-18）
+    "enabled": true,         // 是否启用 thinking 模式
+    "budget_tokens": 8192    // 可选，思考 token 预算（Provider 支持时生效）
+  }
 }
 ```
 
@@ -105,9 +115,58 @@ data: [DONE]
 | `rate_limited` | 429 | 速率限制 |
 | `internal_error` | 500 | 内部错误（server_error 时使用） |
 
+### POST /v1/images/generations
+
+OpenAI Images API 兼容端点（V5-16 图片生成）。系统级开关 `enable_image_generation` 可禁用。
+
+**请求头**：同 `/v1/chat/completions`
+
+**请求体**：
+```jsonc
+{
+  "prompt": "A cute cat wearing a hat",   // 必填
+  "model": "openai/dall-e-3",             // 可选，不填时自动选 features 含 "image-generation" 的模型
+  "n": 1,                                  // 可选，默认 1
+  "size": "1024x1024",                     // 可选
+  "quality": "standard",                   // 可选 "standard" | "hd"
+  "response_format": "url",               // 可选 "url" | "b64_json"
+  "style": "vivid",                        // 可选 "vivid" | "natural"
+  "user": "user-id"                        // 可选
+}
+```
+
+**响应**：
+```jsonc
+{
+  "created": 1234567890,
+  "data": [
+    {
+      "url": "https://...",
+      "revised_prompt": "A cute cat..."
+    }
+  ]
+}
+```
+
+**错误码**：
+
+| code | HTTP | 说明 |
+|------|------|------|
+| `image_generation_disabled` | 404 | 系统级开关已关闭 |
+| `no_image_capable_model` | 400 | 未找到支持图片生成的模型 |
+| `model_not_image_capable` | 400 | 指定模型不支持图片生成（features 缺少 "image-generation"） |
+| `provider_not_support_image` | 501 | Provider adapter 不支持图片生成（如 Anthropic） |
+| `upstream_error` | 502 | Provider 返回错误 |
+
+**路由层**：
+- `model` 有值 → `DIRECT`
+- `model` 无值 → `L3_FALLBACK`（自动选模型）
+
+**日志**：`request_logs.modalities = ["image-generation"]`，`routingLayer` 为 `DIRECT` 或 `L3_FALLBACK`
+
 ### GET /v1/models
 
-返回已配置且启用的模型列表。
+返回已配置且启用的模型列表。**应用层限流**：30 req/min per API Token（Redis 滑动窗口，超限返回 `429 rate_limited`；SEC-003）。
 
 **响应**：
 ```jsonc
@@ -119,13 +178,29 @@ data: [DONE]
       "object": "model",
       "created": 1234567890,
       "owned_by": "smart-router"
+    },
+    {
+      "id": "openai/gpt-4o",
+      "object": "model",
+      "created": 1234567890,
+      "owned_by": "openai",
+      // V5 扩展字段（V2-11 / V5-16 / V5-18）
+      "capabilities": {       // 仅包含 true 的能力
+        "vision": true,
+        "thinking": true
+      },
+      "context_window": 128000
     }
-    // 可选：也列出各 provider 的实际模型
+    // ...其余已启用模型
   ]
 }
 ```
 
+> **V5 元数据**：`capabilities` 对象仅包含值为 `true` 的能力键（`vision`、`audio`、`image_generation`、`thinking`），无能力时省略整个字段；`context_window` 为模型上下文窗口大小（整数 token 数）。`auto` 条目不含 `capabilities` 与 `context_window`。
+
 ### GET /health
+
+**无鉴权**（监控探针使用）。**应用层限流**：6 req/min per IP（Redis 滑动窗口，超限返回 `429 rate_limited`；SEC-003）。建议在网关层将 `/health` 限制为内网访问。
 
 **HTTP 状态**：**503** 仅当 **Redis 或 PostgreSQL** 不可用（代理无法读规则/缓存/熔断等核心状态）；**Router / Ollama** 不可达时仍为 **200**，通过 `services.router` / `services.ollama` 为 `"unavailable"` 表示软依赖降级（**AUDIT-011**）。
 
@@ -348,8 +423,8 @@ Next.js API Routes，供 Dashboard 前端调用。需登录态（Better Auth ses
 |------|------|------|
 | GET | `/api/providers/:id/models` | 指定 Provider 下的模型列表 |
 | POST | `/api/providers/:id/models` | 在指定 Provider 下新建模型 |
-| GET | `/api/providers/:id/upstream-models` | 从上游拉取可用 `modelId[]`（`GET …/v1/models`；OpenAI/兼容：`Authorization: Bearer`；Anthropic：`x-api-key` + `anthropic-version`）；响应 `{ models: string[] }`，可选 `hint`（如 `coding*.dashscope.aliyuncs.com` 等网关对 `GET /v1/models` 返回 404/405 时返回空列表并附说明，聊天仍可用）；超时 15s |
-| PUT | `/api/models/:id` | 更新模型配置 |
+| GET | `/api/providers/:id/upstream-models` | 从上游拉取可用模型（`GET …/v1/models`；OpenAI/兼容：`Authorization: Bearer`；Anthropic：`x-api-key` + `anthropic-version`）；响应 `{ models: Array<{ id: string; owned_by?: string; created?: number }> }`（V2-11 扩展元数据），可选 `hint`（如 `coding*.dashscope.aliyuncs.com` 等网关对 `GET /v1/models` 返回 404/405 时返回空列表并附说明，聊天仍可用）；超时 15s；**速率限制 5 次/分钟**（Redis 滑动窗口，超限返回 `429`）|
+| PUT | `/api/models/:id` | 更新模型配置；支持 `features: string[]`（如 `["vision","audio"]`）更新模型能力标签（V5-16） |
 | DELETE | `/api/models/:id` | 删除模型 |
 | POST | `/api/providers/:id/models/import` | （规划中）批量导入模型 |
 
@@ -424,13 +499,13 @@ Next.js API Routes，供 Dashboard 前端调用。需登录态（Better Auth ses
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/stats/overview` | KPI 总览（今日请求数/花费/节省/缓存命中率） |
+| GET | `/api/stats/overview` | KPI 总览（今日请求数/花费/节省/缓存命中率/思维模式请求/多模态请求）；多模态统计含 `multimodalRequests` 与 `multimodalRate`（V5-16）；Token 使用分布 `tokenDistribution`（V5-17） |
 | GET | `/api/stats/cost` | 成本统计（`days` 查询参数 1～90，默认 7）：实际/假设成本、节省、日趋势等 |
-| GET | `/api/stats/logs` | 请求日志分页查询 |
-| GET | `/api/stats/logs/export` | 导出 CSV |
+| GET | `/api/stats/logs` | 请求日志分页查询；支持 `?modality=vision` 按模态筛选（V5-16）；支持 `?apiTokenId=` 按 Token 筛选（V5-17）；返回含 `modalities: string[]`、`apiTokenId`、`apiTokenName` 字段 |
+| GET | `/api/stats/logs/export` | 导出 CSV；含 `apiTokenName` 列（V5-17） |
 | GET | `/api/stats/fallback` | Fallback 趋势 |
 | GET | `/api/stats/circuit-breakers` | 当前熔断状态 |
-| GET | `/api/stats/rules-hit` | 规则命中频率统计 |
+| GET | `/api/stats/rules-hit` | 规则命中频率统计；支持 `?apiTokenId=` 按 Token 筛选（V5-17）：传入时 hitCount / avgLatencyMs / lastHitAt 均从 `request_logs` 聚合，而非 `rules` 表全局值 |
 | GET | `/api/stats/latency-percentiles` | 按 `routingLayer` 聚合近 N 小时 `request_logs.latencyMs` 的 P50/P95/P99；查询参数 **`hours`**（默认 24，1～168）；**`format=json`**（默认）或 **`format=csv`** 导出（**ISSUE-PL-05**） |
 
 ### 设置
@@ -503,3 +578,76 @@ NL/问卷调用 LLM 时 **`temperature`** 来自 GET 解析结果（与设置页
 { "ok": true, "model": "OpenAI/gpt-4", "deletedKeys": 2 }
 ```
 （`deletedKeys` 为 `DEL` 成功删除的键数量。）
+
+---
+
+## 四、多模态与生成类能力（V5-16）
+
+### Content 类型
+
+`POST /v1/chat/completions` 的 `messages[].content` 支持两种形态：
+- **字符串**：传统纯文本（向后兼容）
+- **ContentPart 数组**：OpenAI 多模态 content-parts 格式
+
+```jsonc
+// ContentPart 类型（discriminated union on "type"）
+{ "type": "text", "text": "..." }
+{ "type": "image_url", "image_url": { "url": "...", "detail": "auto" } }
+{ "type": "input_audio", "input_audio": { "data": "base64...", "format": "wav" } }
+```
+
+### 模型能力标签（`features`）
+
+Model 表 `features String[]` 字段存储模型能力标签：
+- `"vision"` — 支持图片/视觉输入
+- `"audio"` — 支持音频输入
+
+Dashboard 模型管理 UI 提供 "Supports Vision" / "Supports Audio" 复选框，映射到 `features` 数组。
+
+### 规则条件 `hasModality`
+
+路由规则条件新增 `hasModality` 类型，匹配请求中检测到的模态：
+
+```jsonc
+{ "type": "hasModality", "modalities": ["vision"] }
+```
+
+`modalities` 合法值：`"vision"`、`"audio"`。请求入口同步检测 `detectedModalities`，规则引擎检查交集。
+
+### 能力软门控
+
+Fallback 链中优先选择具有匹配 `features` 的模型（如 vision 请求优先路由到 `features` 含 `"vision"` 的模型），无能力模型排后但不硬拒。
+
+### 请求日志 `modalities`
+
+`request_logs` 表新增 `modalities TEXT[]`（默认 `["text"]`），记录每次请求包含的模态类型。
+
+### Provider 多模态适配
+
+- **OpenAI / Generic**：content-parts 数组原样透传
+- **Anthropic**：`image_url` → Anthropic `source: { type: "base64"|"url" }` 格式转换；`input_audio` 降级为文本 `"[audio content]"`（Anthropic 暂不支持音频直传）
+
+---
+
+## 五、API Token 维度 — 统计与请求日志（V5-17）
+
+### 请求日志 Token 字段
+
+`request_logs` 表新增两个可空字段（反规范化存储，无外键）：
+
+- `apiTokenId TEXT` — 发起请求的 API Token ID
+- `apiTokenName TEXT` — 发起请求的 API Token 名称（便于展示与筛选）
+- 索引：`request_logs_apiTokenId_idx` ON `("apiTokenId")`
+
+Proxy 鉴权成功后从 `api_tokens` 表获取 `id` 和 `name`，通过 `res.locals.apiToken` 传递给路由处理器，写入 `emitLog` → `request_logs`。
+
+### Redis 认证缓存格式（向后兼容）
+
+- **新格式**：`JSON.stringify({ id, name })`（60s TTL）
+- **旧格式**：`"1"`（向后兼容解析，token info 为 null）
+
+### 统计 API
+
+- `GET /api/stats/overview` 响应新增 `tokenDistribution: { name: string; count: number }[]` — 今日 Top 10 Token 使用分布
+- `GET /api/stats/logs` 支持 `?apiTokenId=<id>` 按 Token 筛选；返回含 `apiTokenId`、`apiTokenName`
+- `GET /api/stats/logs/export` CSV 新增 `apiTokenName` 列

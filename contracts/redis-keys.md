@@ -24,6 +24,8 @@
 | `proxy_config:updated` | Pub/Sub channel | dashboard | proxy | N/A | Proxy 运行时配置变更（L0.5 超时、L1 fallback 开关，**ISSUE-V4-03**） |
 | `router_config:updated` | Pub/Sub channel | dashboard | router | N/A | Router L2 阈值等热更新（**ISSUE-V4-06**） |
 | `api_tokens:invalidate` | Pub/Sub channel | dashboard | proxy | N/A | API Token 撤销，Payload 含 `tokenHash` |
+| `rl:models:<tokenId>` | String (int) | proxy | proxy | 用户配置（默认 60s） | SEC-003 应用层限流：`GET /v1/models` 每 API Token 滑动窗口计数（INCR） |
+| `rl:health:<ip>` | String (int) | proxy | proxy | 用户配置（默认 60s） | SEC-003 应用层限流：`GET /health` 每 IP 滑动窗口计数（INCR） |
 | `config:ollama_url` | String | dashboard | router | 无 | Ollama 基地址（Dashboard 内配置，覆盖 env） |
 | `config:arch_router_model` | String | dashboard | router | 无 | L3 Arch-Router 模型名（如 fauxpaslife/arch-router:1.5b） |
 

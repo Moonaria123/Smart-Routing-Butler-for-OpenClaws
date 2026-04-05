@@ -27,10 +27,14 @@ export function RuleHitStats() {
   const [data, setData] = useState<RuleHitData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tokenFilter, setTokenFilter] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/stats/rules-hit");
+      const params = new URLSearchParams();
+      if (tokenFilter) params.set("apiTokenId", tokenFilter);
+      const qs = params.toString();
+      const res = await fetch(`/api/stats/rules-hit${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("load fail");
       const json = (await res.json()) as RuleHitData[];
       setData(json);
@@ -40,7 +44,7 @@ export function RuleHitStats() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, tokenFilter]);
 
   useEffect(() => {
     void fetchData();
@@ -75,6 +79,31 @@ export function RuleHitStats() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("rules.hit.filterByToken")}
+          </label>
+          <input
+            type="text"
+            placeholder={t("rules.hit.filterTokenPh")}
+            value={tokenFilter}
+            onChange={(e) => setTokenFilter(e.target.value)}
+            className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            void fetchData();
+          }}
+          className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          {t("logs.filter.apply")}
+        </button>
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">{t("rules.hit.cardTotalHits")}</p>

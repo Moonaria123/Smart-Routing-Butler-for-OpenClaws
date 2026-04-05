@@ -168,6 +168,27 @@ export function sanitizeGeneratedRules(
       }
     }
     obj.fallbackChain = nextChain.slice(0, 8);
+
+    // thinkingStrategy 白名单校验
+    const validStrategies = ["auto", "enabled", "disabled"];
+    if (typeof obj.thinkingStrategy !== "string" || !validStrategies.includes(obj.thinkingStrategy)) {
+      obj.thinkingStrategy = "auto";
+    }
+
+    // hasModality modalities 白名单校验
+    const cond = obj.conditions as { items?: unknown[] } | undefined;
+    if (cond && Array.isArray(cond.items)) {
+      const validModalities = ["vision", "audio", "image-generation"];
+      for (const item of cond.items) {
+        if (item && typeof item === "object" && (item as Record<string, unknown>).type === "hasModality") {
+          const ci = item as Record<string, unknown>;
+          if (Array.isArray(ci.modalities)) {
+            ci.modalities = (ci.modalities as string[]).filter((m) => validModalities.includes(m));
+          }
+        }
+      }
+    }
+
     obj.conditions = normalizeGeneratedConditions(obj.conditions);
     out.push(obj);
   }

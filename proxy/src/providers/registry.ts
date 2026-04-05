@@ -36,6 +36,8 @@ export interface ResolvedProvider {
     inputCost: number;
     outputCost: number;
     defaultParams: Record<string, unknown>;
+    supportsThinking: boolean;
+    defaultThinking: Record<string, unknown>;
     features: string[];
   };
 }
@@ -66,6 +68,8 @@ export async function resolveProvider(targetModel: string): Promise<ResolvedProv
     m_input_cost: number;
     m_output_cost: number;
     m_default_params: Record<string, unknown>;
+    m_supports_thinking: boolean;
+    m_default_thinking: Record<string, unknown>;
     m_features: string[];
   }>(
     `SELECT
@@ -80,6 +84,8 @@ export async function resolveProvider(targetModel: string): Promise<ResolvedProv
        m."inputCost"     AS m_input_cost,
        m."outputCost"    AS m_output_cost,
        m."defaultParams" AS m_default_params,
+       m."supportsThinking" AS m_supports_thinking,
+       m."defaultThinking"  AS m_default_thinking,
        m.features        AS m_features
      FROM providers p
      JOIN models m ON m."providerId" = p.id
@@ -128,6 +134,8 @@ export async function resolveProvider(targetModel: string): Promise<ResolvedProv
       inputCost: row.m_input_cost,
       outputCost: row.m_output_cost,
       defaultParams: row.m_default_params ?? {},
+      supportsThinking: row.m_supports_thinking ?? false,
+      defaultThinking: row.m_default_thinking ?? {},
       features: row.m_features ?? [],
     },
   };

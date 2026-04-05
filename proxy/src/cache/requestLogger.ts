@@ -16,6 +16,10 @@ export interface RequestLogData {
   statusCode: number;
   streaming: boolean;
   cacheHit: boolean;
+  thinkingEnabled: boolean;
+  modalities: string[];
+  apiTokenId: string | null;
+  apiTokenName: string | null;
 }
 
 const BATCH_SIZE = 25;
@@ -38,7 +42,7 @@ async function flushQueue(): Promise<void> {
 
   const values: unknown[] = [];
   const placeholders: string[] = [];
-  const paramsPerRow = 13;
+  const paramsPerRow = 17;
   for (let idx = 0; idx < batch.length; idx++) {
     const row = batch[idx];
     const id = createId();
@@ -46,7 +50,7 @@ async function flushQueue(): Promise<void> {
     placeholders.push(
       `($${base + 1}, NOW(), $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5},
         $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9},
-        $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, NOW())`,
+        $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16}, $${base + 17}, NOW())`,
     );
     values.push(
       id,
@@ -62,6 +66,10 @@ async function flushQueue(): Promise<void> {
       row.statusCode,
       row.streaming,
       row.cacheHit,
+      row.thinkingEnabled,
+      row.modalities,
+      row.apiTokenId,
+      row.apiTokenName,
     );
   }
 
@@ -70,7 +78,7 @@ async function flushQueue(): Promise<void> {
       `INSERT INTO request_logs (
           id, timestamp, "routingLayer", "ruleId", "targetModel", confidence,
           "latencyMs", "routingLatencyMs", "inputTokens", "outputTokens",
-          "estimatedCostUsd", "statusCode", streaming, "cacheHit", "createdAt"
+          "estimatedCostUsd", "statusCode", streaming, "cacheHit", "thinkingEnabled", modalities, "apiTokenId", "apiTokenName", "createdAt"
         ) VALUES ${placeholders.join(", ")}`,
       values,
     );
@@ -83,11 +91,11 @@ async function flushQueue(): Promise<void> {
           `INSERT INTO request_logs (
             id, timestamp, "routingLayer", "ruleId", "targetModel", confidence,
             "latencyMs", "routingLatencyMs", "inputTokens", "outputTokens",
-            "estimatedCostUsd", "statusCode", streaming, "cacheHit", "createdAt"
+            "estimatedCostUsd", "statusCode", streaming, "cacheHit", "thinkingEnabled", modalities, "apiTokenId", "apiTokenName", "createdAt"
           ) VALUES (
             $1, NOW(), $2, $3, $4, $5,
             $6, $7, $8, $9,
-            $10, $11, $12, $13, NOW()
+            $10, $11, $12, $13, $14, $15, $16, $17, NOW()
           )`,
           [
             id,
@@ -103,6 +111,10 @@ async function flushQueue(): Promise<void> {
             row.statusCode,
             row.streaming,
             row.cacheHit,
+            row.thinkingEnabled,
+            row.modalities,
+            row.apiTokenId,
+            row.apiTokenName,
           ],
         );
       } catch (e2) {

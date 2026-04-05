@@ -14,6 +14,7 @@ export interface RuleRecord {
   conditions: Conditions;
   targetModel: string;
   fallbackChain: string[];
+  thinkingStrategy?: "auto" | "enabled" | "disabled" | null;
   description: string | null;
   descriptionEn?: string | null;
   hitCount: number;

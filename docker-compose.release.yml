@@ -1,4 +1,5 @@
 # Smart Router Butler — 使用 GHCR 预构建镜像（proxy / router / dashboard），不本地 build
+# Router Tester 独立部署：docker-compose.router-tester.release.yml（见该文件说明）
 # 需与 docker-compose.yml 同步：postgres/redis/卷/健康检查/依赖关系一致
 # 使用前在 .env 中设置 GHCR_OWNER（仓库所在 GitHub 用户名或组织名，与 ghcr.io 命名空间一致）
 # 镜像标签默认 latest（main 分支 CI 发布）；见 .env.example 中 SMARTROUTER_IMAGE_TAG

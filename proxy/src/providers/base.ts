@@ -8,6 +8,14 @@ export interface ProviderRequestParams {
   signal: AbortSignal;
 }
 
+export interface ProviderImageRequestParams {
+  baseUrl: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+  signal: AbortSignal;
+}
+
 export interface ProviderAdapter {
   sendRequest(params: ProviderRequestParams): Promise<Response>;
+  sendImageRequest?(params: ProviderImageRequestParams): Promise<Response>;
 }

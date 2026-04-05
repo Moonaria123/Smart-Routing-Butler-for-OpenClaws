@@ -46,6 +46,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       conditions: parsed.data.conditions,
       targetModel: parsed.data.targetModel,
       fallbackChain: parsed.data.fallbackChain,
+      thinkingStrategy: parsed.data.thinkingStrategy,
       description: parsed.data.description,
       descriptionEn: parsed.data.descriptionEn?.trim() || null,
     },

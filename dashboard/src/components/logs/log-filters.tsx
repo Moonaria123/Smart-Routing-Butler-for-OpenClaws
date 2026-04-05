@@ -10,6 +10,7 @@ export interface LogFilters {
   to: string;
   model: string;
   routingLayer: string;
+  apiTokenId: string;
 }
 
 interface LogFiltersProps {
@@ -121,6 +122,19 @@ export function LogFiltersBar({ filters, onFilterChange }: LogFiltersProps) {
             placeholder={t("logs.filter.modelPh")}
             value={draft.model}
             onChange={(e) => handleChange("model", e.target.value)}
+            className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("logs.filter.token")}
+          </label>
+          <input
+            type="text"
+            placeholder={t("logs.filter.tokenPh")}
+            value={draft.apiTokenId}
+            onChange={(e) => handleChange("apiTokenId", e.target.value)}
             className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
           />
         </div>

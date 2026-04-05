@@ -19,6 +19,7 @@ const DEFAULT_FILTERS: LogFilters = {
   to: "",
   model: "",
   routingLayer: "ALL",
+  apiTokenId: "",
 };
 
 export default function LogsPage() {
@@ -41,6 +42,7 @@ export default function LogsPage() {
         if (filters.routingLayer && filters.routingLayer !== "ALL") {
           params.set("routingLayer", filters.routingLayer);
         }
+        if (filters.apiTokenId) params.set("apiTokenId", filters.apiTokenId);
 
         const res = await fetch(`/api/stats/logs?${params.toString()}`);
         if (!res.ok) throw new Error(t("logs.fetchFail"));

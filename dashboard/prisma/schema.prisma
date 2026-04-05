@@ -101,8 +101,10 @@ model Model {
   contextWindow Int      @default(128000)
   inputCost     Float    @default(0)
   outputCost    Float    @default(0)
-  defaultParams Json     @default("{}")
-  features      String[]
+  defaultParams    Json     @default("{}")
+  supportsThinking Boolean  @default(false)
+  defaultThinking  Json     @default("{}")
+  features         String[]
   enabled       Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -122,6 +124,8 @@ model Rule {
   conditions    Json
   targetModel   String
   fallbackChain String[]
+  /// 规则级思维策略：auto / enabled / disabled
+  thinkingStrategy String @default("auto")
   description   String?
   /// 英文界面展示用描述（可选）
   descriptionEn String?
@@ -149,6 +153,10 @@ model RequestLog {
   statusCode       Int      @default(200)
   streaming        Boolean  @default(false)
   cacheHit         Boolean  @default(false)
+  thinkingEnabled  Boolean  @default(false)
+  modalities       String[] @default(["text"])
+  apiTokenId       String?
+  apiTokenName     String?
   createdAt        DateTime @default(now())
 
   @@index([timestamp])
@@ -156,6 +164,7 @@ model RequestLog {
   @@index([targetModel])
   @@index([statusCode])
   @@index([timestamp, statusCode])
+  @@index([apiTokenId])
   @@map("request_logs")
 }
 

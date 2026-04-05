@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   const model = params.get("model");
   const routingLayer = params.get("routingLayer");
   const ruleId = params.get("ruleId");
+  const modality = params.get("modality");
+  const apiTokenId = params.get("apiTokenId");
 
   const where: Prisma.RequestLogWhereInput = {};
 
@@ -36,6 +38,14 @@ export async function GET(request: NextRequest) {
 
   if (ruleId) {
     where.ruleId = ruleId;
+  }
+
+  if (modality) {
+    where.modalities = { has: modality };
+  }
+
+  if (apiTokenId) {
+    where.apiTokenId = apiTokenId;
   }
 
   try {
@@ -60,6 +70,10 @@ export async function GET(request: NextRequest) {
           statusCode: true,
           streaming: true,
           cacheHit: true,
+          thinkingEnabled: true,
+          modalities: true,
+          apiTokenId: true,
+          apiTokenName: true,
         },
       }),
       db.requestLog.count({ where }),

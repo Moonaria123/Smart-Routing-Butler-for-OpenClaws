@@ -11,6 +11,8 @@ let fallbackOnInvalidL1Target = false;
 let routingEnableL2 = true;
 /** ISSUE-V5-09：是否调用 Router L3（Arch-Router）；默认 true */
 let routingEnableL3 = true;
+/** ISSUE-V5-16：是否启用图片生成端点；默认 true */
+let enableImageGeneration = true;
 
 function clampMs(n: number): number {
   if (Number.isNaN(n)) return 55;
@@ -43,6 +45,11 @@ export function getRoutingEnableL2(): boolean {
 /** 是否启用 L3 Arch-Router（关闭则跳过 L3；L2 仍可单独关闭） */
 export function getRoutingEnableL3(): boolean {
   return routingEnableL3;
+}
+
+/** 是否启用图片生成端点 /v1/images/generations */
+export function getEnableImageGeneration(): boolean {
+  return enableImageGeneration;
 }
 
 export async function refreshProxyRuntimeFromDb(): Promise<void> {
@@ -150,10 +157,37 @@ export async function refreshProxyRuntimeFromDb(): Promise<void> {
     routingEnableL3 = l3;
   }
 
+  const envImg = parseEnvBool(process.env.ENABLE_IMAGE_GENERATION);
+  if (envImg !== null) {
+    enableImageGeneration = envImg;
+  } else {
+    let img = true;
+    try {
+      const pool = getDbPool();
+      const { rows } = await pool.query<{ value: unknown }>(
+        `SELECT value FROM system_config WHERE key = $1 LIMIT 1`,
+        ["enable_image_generation"],
+      );
+      if (rows.length > 0) {
+        const v = rows[0].value;
+        if (typeof v === "boolean") img = v;
+        else if (v != null && typeof v === "object" && "enabled" in v && typeof (v as { enabled: unknown }).enabled === "boolean") {
+          img = (v as { enabled: boolean }).enabled;
+        }
+      }
+    } catch (err) {
+      logger.warn("读取 enable_image_generation 失败，使用内存旧值", {
+        error: (err as Error).message,
+      });
+    }
+    enableImageGeneration = img;
+  }
+
   logger.info("Proxy 运行时配置已刷新", {
     semanticCacheCheckMs,
     fallbackOnInvalidL1Target,
     routingEnableL2,
     routingEnableL3,
+    enableImageGeneration,
   });
 }

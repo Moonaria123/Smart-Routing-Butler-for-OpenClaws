@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth-guard";
 import { logServerError } from "@/lib/server-logger";
 
 const CSV_HEADER =
-  "timestamp,routingLayer,targetModel,latencyMs,inputTokens,outputTokens,estimatedCostUsd,statusCode\n";
+  "timestamp,routingLayer,targetModel,apiTokenName,latencyMs,inputTokens,outputTokens,estimatedCostUsd,statusCode\n";
 
 function escapeCSV(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -29,6 +29,7 @@ export async function GET() {
         timestamp: true,
         routingLayer: true,
         targetModel: true,
+        apiTokenName: true,
         latencyMs: true,
         inputTokens: true,
         outputTokens: true,
@@ -44,6 +45,7 @@ export async function GET() {
           log.timestamp.toISOString(),
           escapeCSV(log.routingLayer),
           escapeCSV(log.targetModel),
+          escapeCSV(log.apiTokenName ?? ""),
           String(log.latencyMs),
           String(log.inputTokens),
           String(log.outputTokens),

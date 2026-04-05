@@ -33,14 +33,25 @@ export async function authMiddleware(
   try {
     const cacheKey = apiTokenCacheKey(tokenHash);
     const cached = await getRedis().get(cacheKey);
-    if (cached === "1") {
+    if (cached) {
+      // 向后兼容：旧缓存值为 "1"，新缓存值为 JSON {id, name}
+      let tokenInfo: { id: string | null; name: string | null } = { id: null, name: null };
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.id === "string") {
+          tokenInfo = { id: parsed.id, name: parsed.name ?? null };
+        }
+      } catch {
+        // 旧缓存值 "1"，无 token info
+      }
+      res.locals.apiToken = tokenInfo;
       next();
       return;
     }
 
     const pool = getDbPool();
     const result = await pool.query(
-      `SELECT id, "revokedAt" FROM api_tokens WHERE "tokenHash" = $1`,
+      `SELECT id, name, "revokedAt" FROM api_tokens WHERE "tokenHash" = $1`,
       [tokenHash]
     );
 
@@ -66,7 +77,10 @@ export async function authMiddleware(
       return;
     }
 
-    await getRedis().set(cacheKey, "1", "EX", TOKEN_CACHE_TTL_SECONDS);
+    const row = result.rows[0];
+    const tokenInfo = { id: row.id as string, name: (row.name as string) ?? null };
+    await getRedis().set(cacheKey, JSON.stringify(tokenInfo), "EX", TOKEN_CACHE_TTL_SECONDS);
+    res.locals.apiToken = tokenInfo;
     next();
   } catch (err) {
     next(err);

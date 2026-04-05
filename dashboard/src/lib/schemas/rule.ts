@@ -9,6 +9,7 @@ export const conditionItemSchema = z.object({
     "maxCost",
     "maxLatency",
     "providerHealth",
+    "hasModality",
   ]),
   keywords: z.array(z.string()).optional(),
   minTokens: z.number().optional(),
@@ -18,6 +19,7 @@ export const conditionItemSchema = z.object({
   maxLatencyMs: z.number().optional(),
   providerName: z.string().optional(),
   healthStatus: z.enum(["green", "yellow", "red"]).optional(),
+  modalities: z.array(z.string()).optional(),
 });
 
 export const conditionsSchema = z.object({
@@ -33,6 +35,7 @@ export const ruleSchema = z.object({
   conditions: conditionsSchema,
   targetModel: z.string().min(1, "目标模型不能为空"),
   fallbackChain: z.array(z.string()).max(3).default([]),
+  thinkingStrategy: z.enum(["auto", "enabled", "disabled"]).default("auto"),
   description: z.string().optional(),
   descriptionEn: z.string().optional(),
 });
@@ -48,6 +51,7 @@ export const CONDITION_TYPE_LABELS: Record<ConditionItem["type"], string> = {
   maxCost: "最大成本",
   maxLatency: "最大延迟",
   providerHealth: "Provider 健康状态",
+  hasModality: "多模态内容类型",
 };
 
 export const TASK_TYPE_OPTIONS = [
